@@ -2,6 +2,7 @@ from __future__ import annotations
 import hashlib
 import re
 import time
+from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -16,6 +17,7 @@ URLS = [
 ]
 
 OUT_FILE = FUENTES_DIR / "lugares_turismo.json"
+SEED_FILE = Path(__file__).resolve().parents[1] / "data" / "seed_lugares.json"
 
 BAD_TEXTS = {
     "to see", "about us", "accomodation", "accommodation", "aviso legal",
@@ -380,7 +382,6 @@ def main():
         seen.add(key)
         unique.append(item)
 
-    # fallback a OSM si Bilbao Turismo falla o no devuelve nada
     if not unique:
         print("Bilbao Turismo sin resultados válidos. Intentando fallback OpenStreetMap...")
         try:
@@ -394,6 +395,15 @@ def main():
         update_sync("Lugares Turismo", len(previous), status="ok", note="Se conserva último snapshot válido")
         print(f"Lugares Turismo: 0 nuevos, se conserva snapshot anterior ({len(previous)})")
         return
+
+    # fallback final a seed local para primer arranque
+    if not unique and SEED_FILE.exists():
+        seed = read_json(SEED_FILE, [])
+        if seed:
+            write_json(OUT_FILE, seed)
+            update_sync("Lugares Turismo", len(seed), status="ok", note="Fallback seed local")
+            print(f"Lugares Turismo: fallback seed local ({len(seed)})")
+            return
 
     if not unique and not previous:
         update_sync("Lugares Turismo", 0, status="error", note="Todas las fuentes fallaron")
