@@ -73,17 +73,26 @@ def main():
     seen = set()
     existing = _existing_index()
 
+    source_items = []
     for path in SOURCE_FILES:
-        for item in read_json(path, []):
-            norm = normalize(item, existing)
-            key = (norm["fuente"], norm["nombre"], norm["url"])
-            if key in seen or not norm["nombre"]:
-                continue
-            seen.add(key)
-            merged.append(norm)
+        source_items.extend(read_json(path, []))
 
-    # conservar lugares manuales
-    for row in data_store.load_places():
+    # PROTECCIÓN: si la fuente está vacía pero ya había lugares, conserva el estado anterior
+    current_places = data_store.load_places()
+    if not source_items and current_places:
+        update_sync("Lugares agregados", len(current_places), status="ok", note="Se conserva lugares.json anterior")
+        print(f"Lugares agregados: 0 nuevos, se conserva snapshot anterior ({len(current_places)})")
+        return
+
+    for item in source_items:
+        norm = normalize(item, existing)
+        key = (norm["fuente"], norm["nombre"], norm["url"])
+        if key in seen or not norm["nombre"]:
+            continue
+        seen.add(key)
+        merged.append(norm)
+
+    for row in current_places:
         if not row.get("auto_source"):
             merged.append(row)
 
