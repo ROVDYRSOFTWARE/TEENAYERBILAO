@@ -1,0 +1,38 @@
+{% extends 'admin_base.html' %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="card">
+    <h2>Contenido</h2>
+    <p>Eventos: {{ stats.events_total }}</p>
+    <p>Lugares: {{ stats.places_total }}</p>
+    <a class="btn" href="{{ url_for('admin_contenidos') }}">Gestionar contenidos</a>
+  </div>
+  <div class="card">
+    <h2>Usuarios anónimos</h2>
+    <p>Perfiles: {{ stats.profiles_total }}</p>
+    <p>Interacciones: {{ stats.interactions_total }}</p>
+    <a class="btn secondary" href="{{ url_for('admin_auditoria') }}">Auditoría</a>
+  </div>
+  <div class="card">
+    <h2>Actualización automática</h2>
+    {% set auto = sync.get('auto_update', {}) %}
+    <p>Estado: {{ auto.get('status', 'sin datos') }}</p>
+    <p>Última ejecución: {{ auto.get('last_run', 'nunca') }}</p>
+    <p>Motivo: {{ auto.get('reason', '-') }}</p>
+    <form method="post" action="{{ url_for('admin_actualizar_ahora') }}">
+      <button class="btn" type="submit">Actualizar ahora</button>
+    </form>
+    <p class="muted">También se lanza al inicio de sesión pública si toca, o a las 06:00 con la tarea programada.</p>
+  </div>
+</div>
+<div class="card" style="margin-top:16px;">
+  <h2>Exportaciones</h2>
+  <p><a href="{{ url_for('export_auditoria') }}">Descargar auditoría CSV</a></p>
+  <p><a href="{{ url_for('export_estadisticas') }}">Descargar estadísticas CSV</a></p>
+</div>
+<div class="card" style="margin-top:16px;">
+  <h2>Resumen por categoría</h2>
+  <ul>{% for k, v in stats.by_category.items() %}<li>{{ k }}: {{ v }}</li>{% endfor %}</ul>
+</div>
+{% endblock %}

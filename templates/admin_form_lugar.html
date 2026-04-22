@@ -1,0 +1,29 @@
+{% extends 'admin_base.html' %}
+{% block title %}Formulario lugar{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{{ 'Editar lugar' if item else 'Nuevo lugar' }}</h1>
+  <form method="post">
+    <input type="hidden" name="id" value="{{ item.id if item else '' }}">
+    <label>Nombre</label><input name="nombre" value="{{ item.nombre if item else '' }}" required>
+    <label>Barrio</label><input name="barrio" value="{{ item.barrio if item else '' }}">
+    <label>Categoría</label><input name="categoria" value="{{ item.categoria if item else '' }}">
+    <label>Franja</label><input name="franja" value="{{ item.franja if item else '' }}">
+    <label>Precio tipo</label><input name="precio_tipo" value="{{ item.precio_tipo if item else '' }}">
+    
+    <label>Ubicación / recinto</label><input name="ubicacion" value="{{ item.ubicacion if item else '' }}">
+    <label>Dirección</label><input name="direccion" value="{{ item.direccion if item else '' }}">
+    <div class="grid" style="grid-template-columns:1fr 1fr; gap:16px;">
+      <div><label>Latitud</label><input name="latitud" value="{{ item.latitud if item else '' }}" placeholder="43.2630"></div>
+      <div><label>Longitud</label><input name="longitud" value="{{ item.longitud if item else '' }}" placeholder="-2.9350"></div>
+    </div>
+    <label>URL Google Maps</label><input name="maps_url" value="{{ item.maps_url if item else '' }}" placeholder="Se genera automáticamente si no se indica">
+    <p class="muted">Si indicas dirección o ubicación y dejas vacías latitud/longitud, el sistema intentará geocodificar automáticamente.</p>
+    <label>Fuente</label><input name="fuente" value="{{ item.fuente if item else '' }}">
+    <label>Tags</label><input name="tags" value="{{ (item.tags|join(', ')) if item else '' }}">
+    <label>Descripción</label><textarea name="descripcion" rows="5">{{ item.descripcion if item else '' }}</textarea>
+    <label>URL</label><input name="url" value="{{ item.url if item else '' }}">
+    <button class="btn" type="submit">Guardar</button>
+  </form>
+</div>
+{% endblock %}

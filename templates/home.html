@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+<div class="hero">
+  <h1>Teenayer Bilbao</h1>
+  <p>Motor de planes con recomendación anónima por histórico y gustos.</p>
+  <p class="muted">Token actual: {{ token }}</p>
+</div>
+<div class="card" style="margin-bottom:16px;">
+  <h2>Cómo funciona</h2>
+  <p>La web aprende con tus clics, barrios, categorías y franjas favoritas. No hace falta login.</p>
+  <a class="btn" href="{{ url_for('preferencias') }}">Definir gustos</a>
+  <a class="btn secondary" href="{{ url_for('recomendado') }}">Ver recomendado</a>
+</div>
+<h2>Primeros recomendados</h2>
+<div class="grid">
+{% for item in ranked %}
+  <div class="card">
+    <div class="pill">{{ item._entity_type }}</div>
+    <div class="pill">{{ item.categoria }}</div>
+    <div class="pill">{{ item.barrio }}</div>
+    <h3>{{ item.titulo or item.nombre }}</h3>
+    <p>{{ item.descripcion[:150] }}{% if item.descripcion|length > 150 %}...{% endif %}</p>
+    <p class="muted">Score {{ item.score }}</p>
+    {% if item._entity_type == 'evento' %}
+      <a class="btn" href="{{ url_for('evento_detalle', event_id=item.id) }}">Abrir</a>
+    {% else %}
+      <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Abrir</a>
+    {% endif %}
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

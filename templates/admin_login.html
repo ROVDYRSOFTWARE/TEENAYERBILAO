@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Acceso administración</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #020617; color: #e2e8f0; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+    .box { width:100%; max-width:420px; background:#111827; border-radius:18px; padding:28px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+    input { width:100%; padding:12px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; border-radius:10px; box-sizing:border-box; margin:10px 0 16px; }
+    button { width:100%; padding:12px; border:0; background:#2563eb; color:#fff; border-radius:10px; font-weight:700; cursor:pointer; }
+    .muted { color:#94a3b8; font-size:14px; }
+    .flash { background:#3f1d1d; color:#fecaca; padding:12px; border-radius:10px; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="muted">Teenayer Bilbao</div>
+    <h1>Acceso administración</h1>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="flash">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <form method="post">
+      <label>Contraseña</label>
+      <input type="password" name="password" required>
+      <button type="submit">Entrar</button>
+    </form>
+    <p class="muted">Ruta separada del usuario final. URL: /admin/login</p>
+  </div>
+</body>
+</html>

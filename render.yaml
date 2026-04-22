@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: teenayerbilbao
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
+      - key: DATA_ROOT
+        value: /var/data/teenayer
+    disk:
+      name: teenayer-data
+      mountPath: /var/data/teenayer
+      sizeGB: 1
+
+  - type: cron
+    name: teenayerbilbao-feed-refresh
+    runtime: python
+    schedule: "0 5 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash -lc 'curl -fsS "$PUBLIC_BASE_URL/tasks/auto-update?token=$CRON_SECRET"'
+    envVars:
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false

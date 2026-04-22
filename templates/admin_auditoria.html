@@ -1,0 +1,27 @@
+{% extends 'admin_base.html' %}
+{% block title %}Auditoría{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:16px;">
+  <h1>Auditoría y estadísticas</h1>
+  <p><a href="{{ url_for('export_auditoria') }}">Descargar auditoría CSV</a> · <a href="{{ url_for('export_estadisticas') }}">Descargar estadísticas CSV</a></p>
+</div>
+<div class="grid">
+  <div class="card"><h2>Por acción</h2><ul>{% for k, v in stats.by_action.items() %}<li>{{ k }}: {{ v }}</li>{% endfor %}</ul></div>
+  <div class="card"><h2>Por barrio</h2><ul>{% for k, v in stats.by_barrio.items() %}<li>{{ k }}: {{ v }}</li>{% endfor %}</ul></div>
+  <div class="card"><h2>Por categoría</h2><ul>{% for k, v in stats.by_category.items() %}<li>{{ k }}: {{ v }}</li>{% endfor %}</ul></div>
+</div>
+<div class="card" style="margin-top:16px;">
+  <h2>Últimas interacciones</h2>
+  <table>
+    <tr><th>Fecha</th><th>Token</th><th>Acción</th><th>Tipo</th><th>ID</th><th>Barrio</th></tr>
+    {% for row in interactions %}<tr><td>{{ row.ts }}</td><td>{{ row.token }}</td><td>{{ row.action }}</td><td>{{ row.entity_type }}</td><td>{{ row.entity_id }}</td><td>{{ row.barrio }}</td></tr>{% endfor %}
+  </table>
+</div>
+<div class="card" style="margin-top:16px;">
+  <h2>Log de auditoría</h2>
+  <table>
+    <tr><th>Fecha</th><th>Acción</th><th>Tipo</th><th>ID</th><th>Meta</th></tr>
+    {% for row in audit_rows %}<tr><td>{{ row.ts }}</td><td>{{ row.action }}</td><td>{{ row.entity_type }}</td><td>{{ row.entity_id }}</td><td>{{ row.meta }}</td></tr>{% endfor %}
+  </table>
+</div>
+{% endblock %}

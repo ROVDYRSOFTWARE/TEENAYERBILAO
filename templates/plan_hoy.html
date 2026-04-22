@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Plan hoy{% endblock %}
+{% block content %}
+<h1>Plan de hoy</h1>
+<div class="grid">
+  <div class="card">
+    <h2>Principal</h2>
+    {% if plan.principal %}
+      <div class="pill">{{ plan.principal.categoria }}</div>
+      <h3>{{ plan.principal.titulo or plan.principal.nombre }}</h3>
+      <p>{{ plan.principal.descripcion }}</p>
+    {% if plan.principal.ubicacion or plan.principal.direccion %}<p><strong>Ubicación:</strong> {{ plan.principal.ubicacion or plan.principal.direccion }}</p>{% endif %}
+    {% if plan.principal._maps_url %}<p><a class="btn secondary" href="{{ plan.principal._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
+    {% else %}<p>No hay principal.</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Comida / parada</h2>
+    {% if plan.comida %}
+      <div class="pill">{{ plan.comida.categoria }}</div>
+      <h3>{{ plan.comida.titulo or plan.comida.nombre }}</h3>
+      <p>{{ plan.comida.descripcion }}</p>
+    {% if plan.comida.ubicacion or plan.comida.direccion %}<p><strong>Ubicación:</strong> {{ plan.comida.ubicacion or plan.comida.direccion }}</p>{% endif %}
+    {% if plan.comida._maps_url %}<p><a class="btn secondary" href="{{ plan.comida._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
+    {% else %}<p>No hay propuesta de comida.</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Extra</h2>
+    {% if plan.extra %}
+      <div class="pill">{{ plan.extra.categoria }}</div>
+      <h3>{{ plan.extra.titulo or plan.extra.nombre }}</h3>
+      <p>{{ plan.extra.descripcion }}</p>
+    {% if plan.extra.ubicacion or plan.extra.direccion %}<p><strong>Ubicación:</strong> {{ plan.extra.ubicacion or plan.extra.direccion }}</p>{% endif %}
+    {% if plan.extra._maps_url %}<p><a class="btn secondary" href="{{ plan.extra._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
+    {% else %}<p>No hay extra.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

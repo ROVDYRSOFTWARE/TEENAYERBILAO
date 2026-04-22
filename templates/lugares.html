@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<div class="grid">
+{% for item in items %}
+  <div class="card">
+    <div class="pill">{{ item.categoria }}</div>
+    <div class="pill">{{ item.barrio }}</div>
+    {% if item.franja %}<div class="pill">{{ item.franja }}</div>{% endif %}
+    <h3>{{ item.titulo or item.nombre }}</h3>
+    {% if item.fecha %}<p><strong>Fecha:</strong> {{ item.fecha }}</p>{% endif %}
+    {% if item.ubicacion or item.direccion %}<p><strong>Ubicación:</strong> {{ item.ubicacion or item.direccion }}</p>{% endif %}
+    <p>{{ item.descripcion[:160] }}{% if item.descripcion|length > 160 %}...{% endif %}</p>
+    {% if item._entity_type == 'evento' %}
+      <a class="btn" href="{{ url_for('evento_detalle', event_id=item.id) }}">Ver evento</a>
+    {% else %}
+      <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver lugar</a>
+    {% endif %}
+    {% if item._maps_url %}<a class="btn secondary" style="margin-left:8px;" href="{{ item._maps_url }}" target="_blank">Mapa</a>{% endif %}
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

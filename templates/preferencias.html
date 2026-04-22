@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Preferencias{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Preferencias</h1>
+  <p>Escribe valores separados por comas. Ejemplo: <em>musica, gaming, comida</em></p>
+  <form method="post">
+    <label>Categorías</label><input name="categorias" placeholder="musica, gaming, comida">
+    <label>Barrios</label><input name="barrios" placeholder="Deusto, Indautxu, Casco Viejo">
+    <label>Franjas</label><input name="franjas" placeholder="tarde, noche">
+    <label>Presupuesto</label><input name="presupuesto" placeholder="gratis, bajo, medio">
+    <button class="btn" type="submit">Guardar preferencias</button>
+  </form>
+</div>
+<div class="card" style="margin-top:16px;">
+  <h2>Perfil actual</h2>
+  <p><strong>Gustos:</strong> {{ profile.gustos }}</p>
+  <p><strong>Barrios:</strong> {{ profile.barrios }}</p>
+  <p><strong>Franjas:</strong> {{ profile.franjas }}</p>
+  <p><strong>Presupuesto:</strong> {{ profile.presupuesto }}</p>
+  <p><strong>Tags:</strong> {{ profile.tags }}</p>
+  <p><strong>Acciones:</strong> {{ profile.acciones }}</p>
+</div>
+{% endblock %}

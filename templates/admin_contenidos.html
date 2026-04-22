@@ -1,0 +1,23 @@
+{% extends 'admin_base.html' %}
+{% block title %}Admin contenidos{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:16px;">
+  <h1>Gestión de contenidos</h1>
+  <a class="btn" href="{{ url_for('admin_evento_form') }}">Nuevo evento</a>
+  <a class="btn secondary" href="{{ url_for('admin_lugar_form') }}">Nuevo lugar</a>
+</div>
+<h2>Eventos</h2>
+<table>
+  <tr><th>ID</th><th>Título</th><th>Ubicación</th><th>Barrio</th><th>Categoría</th><th></th></tr>
+  {% for item in events %}
+    <tr><td>{{ item.id }}</td><td>{{ item.titulo }}</td><td>{{ item.ubicacion or item.direccion or "" }}</td><td>{{ item.barrio }}</td><td>{{ item.categoria }}</td><td><a href="{{ url_for('admin_evento_form', event_id=item.id) }}">Editar</a><form class="inline" method="post" action="{{ url_for('admin_evento_delete', event_id=item.id) }}"><button class="btn warn" type="submit">Eliminar</button></form></td></tr>
+  {% endfor %}
+</table>
+<h2 style="margin-top:18px;">Lugares</h2>
+<table>
+  <tr><th>ID</th><th>Nombre</th><th>Ubicación</th><th>Barrio</th><th>Categoría</th><th></th></tr>
+  {% for item in places %}
+    <tr><td>{{ item.id }}</td><td>{{ item.nombre }}</td><td>{{ item.ubicacion or item.direccion or "" }}</td><td>{{ item.barrio }}</td><td>{{ item.categoria }}</td><td><a href="{{ url_for('admin_lugar_form', place_id=item.id) }}">Editar</a><form class="inline" method="post" action="{{ url_for('admin_lugar_delete', place_id=item.id) }}"><button class="btn warn" type="submit">Eliminar</button></form></td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

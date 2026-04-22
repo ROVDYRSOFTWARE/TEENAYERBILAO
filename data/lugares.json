@@ -1,0 +1,89 @@
+[
+  {
+    "id": "LUG-001",
+    "nombre": "Burger Lab Bilbao",
+    "barrio": "Deusto",
+    "categoria": "comida",
+    "franja": "tarde",
+    "precio_tipo": "bajo",
+    "fuente": "Auto base",
+    "descripcion": "Hamburguesería casual con combos fáciles para cuadrilla.",
+    "url": "",
+    "tags": [
+      "burger",
+      "amigos",
+      "cena",
+      "rapido"
+    ],
+    "ubicacion": "Deusto",
+    "direccion": "",
+    "latitud": "",
+    "longitud": "",
+    "maps_url": ""
+  },
+  {
+    "id": "LUG-002",
+    "nombre": "Pixel Drinks",
+    "barrio": "Indautxu",
+    "categoria": "bubble-tea",
+    "franja": "tarde",
+    "precio_tipo": "bajo",
+    "fuente": "Auto base",
+    "descripcion": "Sitio de bubble tea y meriendas para tarde tranquila.",
+    "url": "",
+    "tags": [
+      "bubble",
+      "te",
+      "merienda",
+      "foto"
+    ],
+    "ubicacion": "Indautxu",
+    "direccion": "",
+    "latitud": "",
+    "longitud": "",
+    "maps_url": ""
+  },
+  {
+    "id": "LUG-003",
+    "nombre": "Night Pulse",
+    "barrio": "Abando",
+    "categoria": "nightlife",
+    "franja": "noche",
+    "precio_tipo": "medio",
+    "fuente": "Auto base",
+    "descripcion": "Sala de ambiente nocturno con música y sesiones de DJ.",
+    "url": "",
+    "tags": [
+      "noche",
+      "dj",
+      "musica",
+      "grupo"
+    ],
+    "ubicacion": "Abando",
+    "direccion": "",
+    "latitud": "",
+    "longitud": "",
+    "maps_url": ""
+  },
+  {
+    "id": "LUG-004",
+    "nombre": "Board & Bytes",
+    "barrio": "Casco Viejo",
+    "categoria": "gaming",
+    "franja": "tarde",
+    "precio_tipo": "bajo",
+    "fuente": "Auto base",
+    "descripcion": "Espacio de juegos, retos rápidos y ambiente social.",
+    "url": "",
+    "tags": [
+      "gaming",
+      "social",
+      "arcade"
+    ],
+    "ubicacion": "Casco Viejo",
+    "direccion": "",
+    "latitud": "",
+    "longitud": "",
+    "maps_url": ""
+  }
+]

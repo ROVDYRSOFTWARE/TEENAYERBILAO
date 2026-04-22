@@ -1,0 +1,93 @@
+[
+  {
+    "id": "EVT-001",
+    "titulo": "Concierto urbano en Bilborock",
+    "fecha": "2026-05-10T19:30:00",
+    "barrio": "Casco Viejo",
+    "categoria": "musica",
+    "franja": "tarde",
+    "precio_tipo": "bajo",
+    "fuente": "Bilbao Gazte",
+    "descripcion": "Sesión de música urbana con artistas emergentes y ambiente joven.",
+    "url": "",
+    "tags": [
+      "urbano",
+      "concierto",
+      "joven",
+      "musica"
+    ],
+    "ubicacion": "Casco Viejo",
+    "direccion": "",
+    "latitud": "",
+    "longitud": "",
+    "maps_url": ""
+  },
+  {
+    "id": "EVT-002",
+    "titulo": "Torneo gaming de tarde",
+    "fecha": "2026-05-11T18:00:00",
+    "barrio": "Deusto",
+    "categoria": "gaming",
+    "franja": "tarde",
+    "precio_tipo": "gratis",
+    "fuente": "La Perrera",
+    "descripcion": "Competición casual con consolas, premios pequeños y zona social.",
+    "url": "",
+    "tags": [
+      "gaming",
+      "torneo",
+      "esports"
+    ],
+    "ubicacion": "Deusto",
+    "direccion": "",
+    "latitud": "",
+    "longitud": "",
+    "maps_url": ""
+  },
+  {
+    "id": "EVT-003",
+    "titulo": "Ruta de fotos al atardecer",
+    "fecha": "2026-05-12T20:00:00",
+    "barrio": "Abando",
+    "categoria": "foto",
+    "franja": "noche",
+    "precio_tipo": "gratis",
+    "fuente": "Bilbao Turismo",
+    "descripcion": "Plan visual por varios puntos icónicos para redes y contenido móvil.",
+    "url": "",
+    "tags": [
+      "instagram",
+      "foto",
+      "atardecer",
+      "ciudad"
+    ],
+    "ubicacion": "Abando",
+    "direccion": "",
+    "latitud": "",
+    "longitud": "",
+    "maps_url": ""
+  },
+  {
+    "id": "EVT-004",
+    "titulo": "Workshop street dance",
+    "fecha": "2026-05-13T18:30:00",
+    "barrio": "Santutxu",
+    "categoria": "baile",
+    "franja": "tarde",
+    "precio_tipo": "medio",
+    "fuente": "Bilbao Gazte",
+    "descripcion": "Taller de baile urbano para grupos de amigos y gente nueva.",
+    "url": "",
+    "tags": [
+      "baile",
+      "street",
+      "grupo",
+      "movimiento"
+    ],
+    "ubicacion": "Santutxu",
+    "direccion": "",
+    "latitud": "",
+    "longitud": "",
+    "maps_url": ""
+  }
+]
