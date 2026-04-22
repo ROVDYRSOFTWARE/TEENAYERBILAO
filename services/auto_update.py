@@ -24,17 +24,24 @@ def should_run(now: datetime | None = None) -> bool:
     now = now or datetime.now()
     last = _last_run_dt()
     six_am = datetime.combine(now.date(), time(6, 0))
+
     if last is None:
         return True
     if now >= six_am and last < six_am:
         return True
     if now.date() > last.date():
         return True
+
     return False
 
 
 def mark_running(reason: str) -> None:
-    data_store.touch_sync_status("auto_update", status="running", reason=reason, started_at=data_store.now_iso())
+    data_store.touch_sync_status(
+        "auto_update",
+        status="running",
+        reason=reason,
+        started_at=data_store.now_iso(),
+    )
 
 
 def mark_finished(ok: bool, reason: str, note: str = "") -> None:
@@ -57,21 +64,29 @@ def _worker(reason: str) -> None:
         data_store.append_audit("auto_update_run", "system", "auto_update", {"reason": reason})
         mark_finished(True, reason, "Actualización automática completada")
     except Exception as exc:
-        data_store.append_audit("auto_update_error", "system", "auto_update", {"reason": reason, "error": str(exc)})
+        data_store.append_audit(
+            "auto_update_error",
+            "system",
+            "auto_update",
+            {"reason": reason, "error": str(exc)},
+        )
         mark_finished(False, reason, str(exc))
     finally:
         with _lock:
             _running = False
 
 
-def maybe_start(reason: str = "startup") -> bool:
+def maybe_start(reason: str = "startup", force: bool = False) -> bool:
     global _running
-    if not should_run():
+
+    if not force and not should_run():
         return False
+
     with _lock:
         if _running:
             return False
         _running = True
+
     thread = threading.Thread(target=_worker, args=(reason,), daemon=True)
     thread.start()
     return True
