@@ -1,4 +1,4 @@
-# Teenayer Bilbao
+# Teenager Bilbao
 
 Esta versión recupera la geolocalización en eventos y lugares, mantiene la administración separada y añade actualización automática de eventos.
 

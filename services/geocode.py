@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.parse import quote_plus
 
 CACHE_FILE = Path(__file__).resolve().parents[1] / "data" / "geocode_cache.json"
-USER_AGENT = "TeenayerBilbao/1.0 (+local-app)"
+USER_AGENT = "TeenagerBilbao/1.0 (+local-app)"
 
 
 def _decode_bytes(raw: bytes) -> str:

@@ -6,7 +6,7 @@ from flask import Flask, Response, abort, flash, make_response, redirect, render
 from services import data_store, recommender, geocode, auto_update
 
 app = Flask(__name__)
-app.secret_key = "teenayer-bilbao-local"
+app.secret_key = "teenager-bilbao-local"
 app.config["ADMIN_PASSWORD"] = os.getenv("ADMIN_PASSWORD", "admin1234")
 data_store.init_files()
 

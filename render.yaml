@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: teenayerbilbao
+    name: teenagerbilbao
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
@@ -14,14 +14,14 @@ services:
       - key: CRON_SECRET
         generateValue: true
       - key: DATA_ROOT
-        value: /var/data/teenayer
+        value: /var/data/teenager
     disk:
-      name: teenayer-data
-      mountPath: /var/data/teenayer
+      name: teenager-data
+      mountPath: /var/data/teenager
       sizeGB: 1
 
   - type: cron
-    name: teenayerbilbao-feed-refresh
+    name: teenagerbilbao-feed-refresh
     runtime: python
     schedule: "0 5 * * *"
     buildCommand: pip install -r requirements.txt

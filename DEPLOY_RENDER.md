@@ -16,7 +16,7 @@ Este proyecto guarda datos en JSON locales (`data/*.json`). En Render, esos camb
 3. En el servicio web, confirma:
    - Build Command: `pip install -r requirements.txt`
    - Start Command: `gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120`
-4. Mantén el disco montado en `/var/data/teenayer`.
+4. Mantén el disco montado en `/var/data/teenager`.
 5. Configura variables:
    - `ADMIN_PASSWORD`
    - `CRON_SECRET`
