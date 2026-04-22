@@ -53,6 +53,9 @@ BAD_TEXTS = {
     "read more",
     "see more",
     "discover",
+    "agenda",
+    "bilbao",
+    "activities",
     "1",
     "2",
     "3",
@@ -85,10 +88,6 @@ GOOD_RESTAURANT_HINTS = [
     "/restaurantes/",
 ]
 
-GOOD_NIGHT_HINTS = [
-    "/nightlife/",
-]
-
 
 def clean(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
@@ -103,12 +102,49 @@ def valid_name(text: str) -> bool:
     t = clean(text)
     if not t:
         return False
-    if t.lower() in BAD_TEXTS:
+
+    low = t.lower()
+
+    if low in BAD_TEXTS:
         return False
-    if len(t) < 3 or len(t) > 90:
+
+    if len(t) < 4 or len(t) > 90:
         return False
+
     if t.startswith("http"):
         return False
+
+    if low in {
+        "agenda",
+        "alonso",
+        "aparte",
+        "artxanda",
+        "artxanda bilbao",
+        "bilbao",
+        "nightlife",
+        "restaurants",
+        "activities",
+        "unique activities",
+    }:
+        return False
+
+    generic_tokens = {
+        "agenda",
+        "home",
+        "contact",
+        "about",
+        "about us",
+        "legal",
+        "newsletter",
+        "discover",
+        "read more",
+        "see more",
+        "mail",
+        "share",
+    }
+    if low in generic_tokens:
+        return False
+
     return True
 
 
@@ -121,8 +157,10 @@ def valid_url(category: str, url: str) -> bool:
 
     if category == "actividad":
         return any(x in u for x in GOOD_ACTIVITY_HINTS)
+
     if category == "restaurante":
         return any(x in u for x in GOOD_RESTAURANT_HINTS)
+
     if category == "nightlife":
         return "/nightlife" in u
 
@@ -135,8 +173,13 @@ def add_item(items: list[dict], seen: set, category: str, name: str, url: str, d
 
     if not valid_name(name):
         return
+
     if not valid_url(category, url):
         return
+
+    if category == "nightlife":
+        if len(name.split()) == 1 and len(name) < 6:
+            return
 
     key = (category, name.lower(), url.lower())
     if key in seen:
@@ -167,9 +210,11 @@ def parse_restaurantes(soup: BeautifulSoup, base_url: str) -> list[dict]:
         href = clean(a.get("href", ""))
         if not href:
             continue
+
         url = urljoin(base_url, href)
         if "bilbaoturismo.net" not in urlparse(url).netloc:
             continue
+
         add_item(items, seen, "restaurante", name, url)
 
     return items
@@ -184,9 +229,11 @@ def parse_unique_activities(soup: BeautifulSoup, base_url: str) -> list[dict]:
         href = clean(a.get("href", ""))
         if not href:
             continue
+
         url = urljoin(base_url, href)
         if "bilbaoturismo.net" not in urlparse(url).netloc:
             continue
+
         add_item(items, seen, "actividad", name, url)
 
     return items
@@ -205,9 +252,11 @@ def parse_nightlife(soup: BeautifulSoup, base_url: str) -> list[dict]:
         href = clean(a.get("href", ""))
         if not href:
             continue
+
         url = urljoin(base_url, href)
         if "bilbaoturismo.net" not in urlparse(url).netloc:
             continue
+
         add_item(items, seen, "nightlife", name, url)
 
     return items
