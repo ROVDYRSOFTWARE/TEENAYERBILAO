@@ -1,0 +1,68 @@
+[
+  {
+    "id": "seed-lug-001",
+    "fuente": "Seed local",
+    "tipo": "actividad",
+    "nombre": "AKTIBA",
+    "descripcion": "",
+    "zona": "Bilbao",
+    "direccion": "",
+    "precio": "",
+    "url": "https://bilbaoturismo.net/BilbaoTurismo/en/unique-activities/aktiba"
+  },
+  {
+    "id": "seed-lug-002",
+    "fuente": "Seed local",
+    "tipo": "actividad",
+    "nombre": "BIZI CYCLE TOURS",
+    "descripcion": "",
+    "zona": "Bilbao",
+    "direccion": "",
+    "precio": "",
+    "url": "https://bilbaoturismo.net/BilbaoTurismo/en/unique-activities/bizi-cycle-tours"
+  },
+  {
+    "id": "seed-lug-003",
+    "fuente": "Seed local",
+    "tipo": "actividad",
+    "nombre": "BODEGA CRUSOE TREASURE",
+    "descripcion": "",
+    "zona": "Bilbao",
+    "direccion": "",
+    "precio": "",
+    "url": "https://bilbaoturismo.net/BilbaoTurismo/en/unique-activities/bodega-crusoe-treasure"
+  },
+  {
+    "id": "seed-lug-004",
+    "fuente": "Seed local",
+    "tipo": "actividad",
+    "nombre": "NEKATUR",
+    "descripcion": "",
+    "zona": "Bilbao",
+    "direccion": "",
+    "precio": "",
+    "url": "https://bilbaoturismo.net/BilbaoTurismo/en/unique-activities/nekatur"
+  },
+  {
+    "id": "seed-lug-005",
+    "fuente": "Seed local",
+    "tipo": "actividad",
+    "nombre": "XARMA",
+    "descripcion": "",
+    "zona": "Bilbao",
+    "direccion": "",
+    "precio": "",
+    "url": "https://bilbaoturismo.net/BilbaoTurismo/en/unique-activities/xarma"
+  },
+  {
+    "id": "seed-lug-006",
+    "fuente": "Seed local",
+    "tipo": "nightlife",
+    "nombre": "BITOQUE DE ALBIA",
+    "descripcion": "",
+    "zona": "Bilbao",
+    "direccion": "",
+    "precio": "",
+    "url": "https://www.bilbaoturismo.net/BilbaoTurismo/en/my-bilbao/nightlife"
+  }
+]
