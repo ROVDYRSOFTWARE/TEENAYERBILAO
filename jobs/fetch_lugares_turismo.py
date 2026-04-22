@@ -1,11 +1,12 @@
 from __future__ import annotations
 import hashlib
 import re
+import time
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
-from jobs.common import FUENTES_DIR, fetch_url, update_sync, write_json
+from jobs.common import FUENTES_DIR, fetch_url, read_json, update_sync, write_json
 
 URLS = [
     ("restaurante", "https://www.bilbaoturismo.net/BilbaoTurismo/en/restaurantes"),
@@ -16,95 +17,34 @@ URLS = [
 OUT_FILE = FUENTES_DIR / "lugares_turismo.json"
 
 BAD_TEXTS = {
-    "to see",
-    "about us",
-    "accomodation",
-    "accommodation",
-    "aviso legal",
-    "legal notice",
-    "interesting areas",
-    "museums and theaters",
-    "old quarter and the ensanche",
-    "routes and panoramic views",
-    "new bilbao",
-    "art en plein air",
-    "transporter bridge-world heritage",
-    "transporter bridge",
-    "restaurants",
-    "nightlife",
-    "unique activities",
-    "highlights",
-    "home",
-    "newsletter",
-    "contact",
-    "site map",
-    "share",
-    "facebook",
-    "twitter",
-    "mail",
-    "for you",
-    "cuisine",
-    "companies",
-    "tourists",
-    "trade",
-    "press",
-    "more information",
-    "more info",
-    "read more",
-    "see more",
-    "discover",
-    "agenda",
-    "bilbao",
-    "activities",
-    "1",
-    "2",
-    "3",
-    "4",
+    "to see", "about us", "accomodation", "accommodation", "aviso legal",
+    "legal notice", "interesting areas", "museums and theaters",
+    "old quarter and the ensanche", "routes and panoramic views", "new bilbao",
+    "art en plein air", "transporter bridge-world heritage", "transporter bridge",
+    "restaurants", "nightlife", "unique activities", "highlights", "home",
+    "newsletter", "contact", "site map", "share", "facebook", "twitter", "mail",
+    "for you", "cuisine", "companies", "tourists", "trade", "press",
+    "more information", "more info", "read more", "see more", "discover",
+    "agenda", "bilbao", "activities", "1", "2", "3", "4",
 }
 
 BAD_URL_PARTS = [
-    "/aviso-legal",
-    "/legal",
-    "/contact",
-    "/newsletter",
-    "/site-map",
-    "/accomodation",
-    "/accommodation",
-    "/historia",
-    "/arte-al-aire-libre",
-    "/anillo-verde",
-    "/the-world-showcase-of-architecture",
-    "/otros-museos",
-    "/bilbao-en-1--2-y-3-dias",
-    "/guggenheim-museum-bilbao_2",
-    "/espacio-gran-via",
+    "/aviso-legal", "/legal", "/contact", "/newsletter", "/site-map",
+    "/accomodation", "/accommodation", "/historia", "/arte-al-aire-libre",
+    "/anillo-verde", "/the-world-showcase-of-architecture", "/otros-museos",
+    "/bilbao-en-1--2-y-3-dias", "/guggenheim-museum-bilbao_2", "/espacio-gran-via",
 ]
 
-GOOD_ACTIVITY_HINTS = [
-    "/unique-activities/",
-]
-
-GOOD_RESTAURANT_HINTS = [
-    "/restaurantes/",
-]
+GOOD_ACTIVITY_HINTS = ["/unique-activities/"]
+GOOD_RESTAURANT_HINTS = ["/restaurantes/"]
 
 NIGHTLIFE_BLACKLIST = {
-    "autocaravaning",
-    "albergue",
-    "apartamento",
-    "arriaga",
-    "arte y cultura",
-    "basque design",
-    "bilbao bizkaia card",
-    "bilbobentura",
-    "azkuna zentroa",
-    "agenda",
-    "artxanda",
-    "artxanda bilbao",
-    "about us",
-    "accomodation",
+    "autocaravaning", "albergue", "apartamento", "arriaga", "arte y cultura",
+    "basque design", "bilbao bizkaia card", "bilbobentura", "azkuna zentroa",
+    "agenda", "artxanda", "artxanda bilbao", "about us", "accomodation",
     "accommodation",
 }
+
 
 def clean(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
@@ -159,19 +99,12 @@ def nightlife_name_ok(name: str) -> bool:
     if low in NIGHTLIFE_BLACKLIST:
         return False
 
-    # evita palabras sueltas genéricas
     if len(name.split()) == 1 and len(name) < 7:
         return False
 
-    # evita categorías y conceptos no locales
     generic_bits = [
-        "arte",
-        "cultura",
-        "card",
-        "design",
-        "apartamento",
-        "albergue",
-        "autocaravaning",
+        "arte", "cultura", "card", "design", "apartamento",
+        "albergue", "autocaravaning",
     ]
     if any(bit in low for bit in generic_bits):
         return False
@@ -273,13 +206,26 @@ def parse_nightlife(soup: BeautifulSoup, base_url: str) -> list[dict]:
     return items
 
 
+def fetch_with_retries(url: str, attempts: int = 3, pause: float = 2.0) -> str:
+    last_exc = None
+    for _ in range(attempts):
+        try:
+            return fetch_url(url, timeout=60)
+        except Exception as exc:
+            last_exc = exc
+            time.sleep(pause)
+    raise last_exc
+
+
 def main():
     lugares = []
+    had_success = False
 
     for category, url in URLS:
         try:
-            html = fetch_url(url)
+            html = fetch_with_retries(url)
             soup = BeautifulSoup(html, "html.parser")
+            had_success = True
 
             if category == "restaurante":
                 lugares.extend(parse_restaurantes(soup, url))
@@ -299,6 +245,18 @@ def main():
             continue
         seen.add(key)
         unique.append(item)
+
+    # PROTECCIÓN: si no se pudo sacar nada pero ya había un fichero anterior, lo conservamos
+    previous = read_json(OUT_FILE, [])
+    if not unique and previous:
+        update_sync("Lugares Turismo", len(previous), status="ok", note="Se conserva último snapshot válido")
+        print(f"Lugares Turismo: 0 nuevos, se conserva snapshot anterior ({len(previous)})")
+        return
+
+    # Si ni siquiera hubo éxito en ninguna fuente y no hay histórico, marca error
+    if not unique and not previous and not had_success:
+        update_sync("Lugares Turismo", 0, status="error", note="Todas las fuentes fallaron")
+        raise RuntimeError("No se pudieron obtener lugares de ninguna fuente")
 
     write_json(OUT_FILE, unique)
     update_sync("Lugares Turismo", len(unique), note="Scraping filtrado de Bilbao Turismo")
