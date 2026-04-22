@@ -88,6 +88,23 @@ GOOD_RESTAURANT_HINTS = [
     "/restaurantes/",
 ]
 
+NIGHTLIFE_BLACKLIST = {
+    "autocaravaning",
+    "albergue",
+    "apartamento",
+    "arriaga",
+    "arte y cultura",
+    "basque design",
+    "bilbao bizkaia card",
+    "bilbobentura",
+    "azkuna zentroa",
+    "agenda",
+    "artxanda",
+    "artxanda bilbao",
+    "about us",
+    "accomodation",
+    "accommodation",
+}
 
 def clean(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
@@ -114,37 +131,6 @@ def valid_name(text: str) -> bool:
     if t.startswith("http"):
         return False
 
-    if low in {
-        "agenda",
-        "alonso",
-        "aparte",
-        "artxanda",
-        "artxanda bilbao",
-        "bilbao",
-        "nightlife",
-        "restaurants",
-        "activities",
-        "unique activities",
-    }:
-        return False
-
-    generic_tokens = {
-        "agenda",
-        "home",
-        "contact",
-        "about",
-        "about us",
-        "legal",
-        "newsletter",
-        "discover",
-        "read more",
-        "see more",
-        "mail",
-        "share",
-    }
-    if low in generic_tokens:
-        return False
-
     return True
 
 
@@ -167,6 +153,32 @@ def valid_url(category: str, url: str) -> bool:
     return True
 
 
+def nightlife_name_ok(name: str) -> bool:
+    low = name.lower()
+
+    if low in NIGHTLIFE_BLACKLIST:
+        return False
+
+    # evita palabras sueltas genéricas
+    if len(name.split()) == 1 and len(name) < 7:
+        return False
+
+    # evita categorías y conceptos no locales
+    generic_bits = [
+        "arte",
+        "cultura",
+        "card",
+        "design",
+        "apartamento",
+        "albergue",
+        "autocaravaning",
+    ]
+    if any(bit in low for bit in generic_bits):
+        return False
+
+    return True
+
+
 def add_item(items: list[dict], seen: set, category: str, name: str, url: str, desc: str = ""):
     name = clean(name)
     desc = clean(desc)
@@ -177,9 +189,8 @@ def add_item(items: list[dict], seen: set, category: str, name: str, url: str, d
     if not valid_url(category, url):
         return
 
-    if category == "nightlife":
-        if len(name.split()) == 1 and len(name) < 6:
-            return
+    if category == "nightlife" and not nightlife_name_ok(name):
+        return
 
     key = (category, name.lower(), url.lower())
     if key in seen:
