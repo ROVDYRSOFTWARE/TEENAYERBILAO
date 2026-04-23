@@ -20,7 +20,7 @@ from flask import (
     url_for,
 )
 
-from services import auto_update, data_store, geocode, recommender
+from services import auto_update, data_store, geocode, recommender, group_planner
 
 app = Flask(__name__)
 app.secret_key = "teenayer-bilbao-local"
@@ -456,8 +456,61 @@ def recomendado():
 @app.route("/plan-hoy")
 def plan_hoy():
     token = current_token()
-    plan = recommender.plan_hoy(token, event_rows(), place_rows())
+    base_plan = recommender.plan_hoy(token, event_rows(), place_rows())
+    plan = group_planner.enrich_today_plan(
+        token=token,
+        plan=base_plan,
+        events=upcoming_event_rows(),
+        places=place_rows(),
+        profile=recommender.get_profile(token),
+    )
     return render_with_token("plan_hoy.html", plan=plan)
+
+
+@app.route("/plan-grupo", methods=["GET", "POST"])
+def plan_grupo():
+    token = current_token()
+    defaults = {
+        "group_size": 4,
+        "age_band": "14-17",
+        "budget": "medio",
+        "energy": "media",
+        "objective": "diversion",
+        "weather": "indiferente",
+        "duration": "tarde",
+        "zone": "",
+    }
+
+    form_data = dict(defaults)
+    plan = None
+
+    if request.method == "POST":
+        form_data = {
+            "group_size": request.form.get("group_size", "4").strip(),
+            "age_band": request.form.get("age_band", "14-17").strip(),
+            "budget": request.form.get("budget", "medio").strip(),
+            "energy": request.form.get("energy", "media").strip(),
+            "objective": request.form.get("objective", "diversion").strip(),
+            "weather": request.form.get("weather", "indiferente").strip(),
+            "duration": request.form.get("duration", "tarde").strip(),
+            "zone": request.form.get("zone", "").strip(),
+        }
+
+        profile = recommender.get_profile(token)
+        plan = group_planner.build_group_plan(
+            token=token,
+            events=upcoming_event_rows(),
+            places=place_rows(),
+            profile=profile,
+            prefs=form_data,
+        )
+
+    return render_with_token(
+        "plan_grupo.html",
+        form_data=form_data,
+        plan=plan,
+        plan_modes=group_planner.group_mode_cards(),
+    )
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
