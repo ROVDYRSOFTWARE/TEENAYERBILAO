@@ -16,11 +16,46 @@ def clean(value: str) -> str:
 
 def infer_franja(tipo: str) -> str:
     t = (tipo or "").lower()
-    if any(x in t for x in ["nightlife", "discoteca", "bar", "noche"]):
-        return "noche"
-    if any(x in t for x in ["restaurante", "cafe", "cafetería", "comida"]):
+
+    if t in {"cine", "bolera", "arcade", "escape-room", "jump-park"}:
         return "tarde"
+    if t in {"cafeteria", "bubble-tea", "heladeria", "merendar"}:
+        return "tarde"
+    if t in {"hamburgueseria", "pizza", "restaurante"}:
+        return "tarde"
+    if t in {"ropa", "sneakers", "manga", "regalos", "belleza", "compras"}:
+        return "tarde"
+    if t in {"museo", "actividad", "quedada"}:
+        return "mañana"
+
     return "tarde"
+
+
+def teen_score(tipo: str) -> int:
+    t = (tipo or "").lower()
+    scores = {
+        "bubble-tea": 10,
+        "arcade": 10,
+        "bolera": 10,
+        "jump-park": 10,
+        "escape-room": 10,
+        "ropa": 9,
+        "sneakers": 9,
+        "manga": 9,
+        "heladeria": 9,
+        "cafeteria": 8,
+        "cine": 8,
+        "hamburgueseria": 8,
+        "pizza": 8,
+        "regalos": 8,
+        "belleza": 8,
+        "compras": 7,
+        "museo": 7,
+        "actividad": 7,
+        "quedada": 7,
+        "restaurante": 6,
+    }
+    return scores.get(t, 5)
 
 
 def _existing_index():
@@ -48,6 +83,7 @@ def normalize(item: dict, existing: dict) -> dict:
     prev = existing.get(key, {})
 
     nombre = clean(item.get("nombre", "")) or clean(prev.get("nombre", ""))
+    categoria = clean(item.get("tipo", "")) or clean(prev.get("categoria", "")) or "lugar"
     barrio = clean(item.get("zona", "")) or clean(prev.get("barrio", "")) or "Bilbao"
     ubicacion = nombre or clean(prev.get("ubicacion", "")) or barrio
     direccion = clean(item.get("direccion", "")) or clean(prev.get("direccion", ""))
@@ -55,6 +91,7 @@ def normalize(item: dict, existing: dict) -> dict:
     lat = clean(prev.get("latitud", ""))
     lon = clean(prev.get("longitud", ""))
     maps_url = clean(prev.get("maps_url", ""))
+    descripcion = clean(item.get("descripcion", "")) or clean(prev.get("descripcion", ""))
 
     if not (lat and lon):
         q = best_query(direccion, ubicacion, barrio)
@@ -70,8 +107,8 @@ def normalize(item: dict, existing: dict) -> dict:
         "id": prev.get("id") or item.get("id", ""),
         "nombre": nombre,
         "barrio": barrio,
-        "categoria": item.get("tipo", "") or "lugar",
-        "franja": clean(prev.get("franja", "")) or infer_franja(item.get("tipo", "")),
+        "categoria": categoria,
+        "franja": clean(prev.get("franja", "")) or infer_franja(categoria),
         "precio_tipo": clean(item.get("precio", "")) or clean(prev.get("precio_tipo", "")),
         "ubicacion": ubicacion,
         "direccion": direccion,
@@ -80,9 +117,10 @@ def normalize(item: dict, existing: dict) -> dict:
         "longitud": lon,
         "maps_url": maps_url,
         "fuente": item.get("fuente", ""),
-        "descripcion": clean(item.get("descripcion", "")) or clean(prev.get("descripcion", "")),
+        "descripcion": descripcion,
         "url": item.get("url", ""),
         "tags": prev.get("tags", []),
+        "teen_score": teen_score(categoria),
         "auto_source": True,
     }
 
@@ -114,9 +152,16 @@ def main():
         if not row.get("auto_source"):
             merged.append(row)
 
-    merged.sort(key=lambda x: ((x.get("categoria") or ""), (x.get("nombre") or "")))
+    merged.sort(
+        key=lambda x: (
+            -(int(x.get("teen_score", 0) or 0)),
+            (x.get("categoria") or ""),
+            (x.get("nombre") or ""),
+        )
+    )
+
     write_json(OUT_FILE, merged)
-    update_sync("Lugares agregados", len(merged), note="Merge local de fuentes con dirección/horario")
+    update_sync("Lugares agregados", len(merged), note="Merge orientado a ocio adolescente")
     print(f"Lugares agregados: {len(merged)}")
 
 
