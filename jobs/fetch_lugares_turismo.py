@@ -77,7 +77,7 @@ def valid_name(text: str) -> bool:
     if low in BAD_TEXTS:
         return False
 
-    if len(t) < 4 or len(t) > 90:
+    if len(t) < 3 or len(t) > 120:
         return False
 
     if t.startswith("http"):
@@ -111,7 +111,7 @@ def nightlife_name_ok(name: str) -> bool:
     if low in NIGHTLIFE_BLACKLIST:
         return False
 
-    if len(name.split()) == 1 and len(name) < 7:
+    if len(name.split()) == 1 and len(name) < 4:
         return False
 
     generic_bits = [
@@ -124,9 +124,139 @@ def nightlife_name_ok(name: str) -> bool:
     return True
 
 
-def add_item(items: list[dict], seen: set, category: str, name: str, url: str, desc: str = ""):
+def likely_address(text: str) -> bool:
+    low = clean(text).lower()
+    address_tokens = [
+        "calle", "c/", "plaza", "avda", "avenida", "alameda", "camino",
+        "gran vía", "gran via", "ibáñez", "ibanez", "licenciado", "sabino",
+        "lehendakari", "lehendakaria", "ramón y cajal", "ramon y cajal",
+        "colon", "hurtado", "moyua", "bilbao", "480"
+    ]
+    has_digit = bool(re.search(r"\d", low))
+    return has_digit or any(tok in low for tok in address_tokens)
+
+
+def split_address_candidates(text: str) -> list[str]:
+    raw = clean(text)
+    if not raw:
+        return []
+    parts = re.split(r"[|·]|(?:\s{2,})|(?:\.\s+)", raw)
+    return [clean(p) for p in parts if clean(p)]
+
+
+def extract_address_from_text(text: str) -> str:
+    if not text:
+        return ""
+
+    candidates = split_address_candidates(text)
+    for part in candidates:
+        if likely_address(part):
+            return part
+
+    m = re.search(
+        r"((?:C\/|Calle|Plaza|Avenida|Avda\.?|Alameda|Camino|Gran V[ií]a|Licenciado|Sabino|Lehendakari[a]?)[^|]+)",
+        text,
+        re.I,
+    )
+    if m:
+        return clean(m.group(1))
+
+    return ""
+
+
+def infer_barrio_from_text(text: str) -> str:
+    raw = clean(text)
+    if not raw:
+        return "Bilbao"
+
+    barrios = [
+        "Abando", "Casco Viejo", "Indautxu", "Deusto", "Miribilla", "Irala",
+        "San Mamés", "Begoña", "Zorroza", "Otxarkoaga", "Errekalde",
+        "Santutxu", "Uribarri", "Ametzola", "Basurto", "Moyua",
+    ]
+    low = raw.lower()
+    for barrio in barrios:
+        if barrio.lower() in low:
+            return barrio
+
+    return "Bilbao"
+
+
+def page_text_blocks(soup: BeautifulSoup) -> list[str]:
+    selectors = [
+        ".field__item",
+        ".content",
+        ".node__content",
+        ".paragraph",
+        ".views-field",
+        "article",
+        "main",
+    ]
+    blocks: list[str] = []
+    for sel in selectors:
+        for el in soup.select(sel):
+            txt = clean(el.get_text(" ", strip=True))
+            if txt and txt not in blocks:
+                blocks.append(txt)
+    if not blocks:
+        txt = clean(soup.get_text(" ", strip=True))
+        if txt:
+            blocks.append(txt)
+    return blocks
+
+
+def fetch_detail_metadata(url: str) -> dict:
+    try:
+        html = fetch_with_retries(url, attempts=2, pause=1.0)
+    except Exception:
+        return {"direccion": "", "zona": "Bilbao", "descripcion": "", "horario": ""}
+
+    soup = BeautifulSoup(html, "html.parser")
+    blocks = page_text_blocks(soup)
+    blob = " | ".join(blocks)
+
+    direccion = extract_address_from_text(blob)
+    zona = infer_barrio_from_text(blob)
+    horario = ""
+
+    horario_match = re.search(
+        r"(?:hours|opening hours|schedule|timetable|horario)\s*[:\-]?\s*([^|]{5,120})",
+        blob,
+        re.I,
+    )
+    if horario_match:
+        horario = clean(horario_match.group(1))
+
+    desc = ""
+    for block in blocks:
+        if len(block) > 50:
+            desc = block[:500]
+            break
+
+    return {
+        "direccion": direccion,
+        "zona": zona or "Bilbao",
+        "descripcion": desc,
+        "horario": horario,
+    }
+
+
+def add_item(
+    items: list[dict],
+    seen: set,
+    category: str,
+    name: str,
+    url: str,
+    desc: str = "",
+    zona: str = "Bilbao",
+    direccion: str = "",
+    horario: str = "",
+):
     name = clean(name)
     desc = clean(desc)
+    zona = clean(zona) or "Bilbao"
+    direccion = clean(direccion)
+    horario = clean(horario)
 
     if not valid_name(name):
         return
@@ -149,9 +279,10 @@ def add_item(items: list[dict], seen: set, category: str, name: str, url: str, d
             "tipo": category,
             "nombre": name,
             "descripcion": desc[:500],
-            "zona": "Bilbao",
-            "direccion": "",
+            "zona": zona,
+            "direccion": direccion,
             "precio": "",
+            "horario": horario,
             "url": url or "",
         }
     )
@@ -171,7 +302,18 @@ def parse_restaurantes(soup: BeautifulSoup, base_url: str) -> list[dict]:
         if "bilbaoturismo.net" not in urlparse(url).netloc:
             continue
 
-        add_item(items, seen, "restaurante", name, url)
+        meta = fetch_detail_metadata(url)
+        add_item(
+            items,
+            seen,
+            "restaurante",
+            name,
+            url,
+            desc=meta.get("descripcion", ""),
+            zona=meta.get("zona", "Bilbao"),
+            direccion=meta.get("direccion", ""),
+            horario=meta.get("horario", ""),
+        )
 
     return items
 
@@ -190,7 +332,18 @@ def parse_unique_activities(soup: BeautifulSoup, base_url: str) -> list[dict]:
         if "bilbaoturismo.net" not in urlparse(url).netloc:
             continue
 
-        add_item(items, seen, "actividad", name, url)
+        meta = fetch_detail_metadata(url)
+        add_item(
+            items,
+            seen,
+            "actividad",
+            name,
+            url,
+            desc=meta.get("descripcion", ""),
+            zona=meta.get("zona", "Bilbao"),
+            direccion=meta.get("direccion", ""),
+            horario=meta.get("horario", ""),
+        )
 
     return items
 
@@ -199,9 +352,21 @@ def parse_nightlife(soup: BeautifulSoup, base_url: str) -> list[dict]:
     items = []
     seen = set()
 
+    meta = fetch_detail_metadata(base_url)
+
     for img in soup.select("img[alt]"):
         name = clean(img.get("alt", "")).replace("Image:", "").strip()
-        add_item(items, seen, "nightlife", name, base_url)
+        add_item(
+            items,
+            seen,
+            "nightlife",
+            name,
+            base_url,
+            desc=meta.get("descripcion", ""),
+            zona=meta.get("zona", "Bilbao"),
+            direccion=meta.get("direccion", ""),
+            horario=meta.get("horario", ""),
+        )
 
     for a in soup.select("a[href]"):
         name = clean(a.get_text(" ", strip=True))
@@ -213,7 +378,18 @@ def parse_nightlife(soup: BeautifulSoup, base_url: str) -> list[dict]:
         if "bilbaoturismo.net" not in urlparse(url).netloc:
             continue
 
-        add_item(items, seen, "nightlife", name, url)
+        item_meta = fetch_detail_metadata(url)
+        add_item(
+            items,
+            seen,
+            "nightlife",
+            name,
+            url,
+            desc=item_meta.get("descripcion", ""),
+            zona=item_meta.get("zona", "Bilbao"),
+            direccion=item_meta.get("direccion", ""),
+            horario=item_meta.get("horario", ""),
+        )
 
     return items
 
@@ -248,6 +424,10 @@ def overpass_query() -> str:
   node["leisure"~"bowling_alley|escape_game|sports_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
   way["leisure"~"bowling_alley|escape_game|sports_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
   relation["leisure"~"bowling_alley|escape_game|sports_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
+
+  node["shop"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
+  way["shop"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
+  relation["shop"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
 );
 out center tags;
 """.strip()
@@ -257,6 +437,7 @@ def osm_category(tags: dict) -> str:
     amenity = (tags.get("amenity") or "").lower()
     tourism = (tags.get("tourism") or "").lower()
     leisure = (tags.get("leisure") or "").lower()
+    shop = (tags.get("shop") or "").lower()
 
     if amenity in {"bar", "pub", "nightclub"}:
         return "nightlife"
@@ -268,6 +449,8 @@ def osm_category(tags: dict) -> str:
         return "actividad"
     if leisure in {"bowling_alley", "escape_game", "sports_centre"}:
         return "actividad"
+    if shop:
+        return "compra"
 
     return "actividad"
 
@@ -320,9 +503,11 @@ def fetch_osm_fallback() -> list[dict]:
                             tags.get("tourism", ""),
                             tags.get("amenity", ""),
                             tags.get("leisure", ""),
+                            tags.get("shop", ""),
                         ]
                     )
                 )
+                horario = clean(tags.get("opening_hours", ""))
 
                 key = (category, name.lower(), url.lower())
                 if key in seen:
@@ -336,9 +521,10 @@ def fetch_osm_fallback() -> list[dict]:
                         "tipo": category,
                         "nombre": name,
                         "descripcion": desc[:500],
-                        "zona": tags.get("addr:suburb", "") or tags.get("addr:neighbourhood", "") or "Bilbao",
+                        "zona": tags.get("addr:suburb", "") or tags.get("addr:neighbourhood", "") or infer_barrio_from_text(address),
                         "direccion": address,
                         "precio": "",
+                        "horario": horario,
                         "url": url,
                     }
                 )
@@ -396,7 +582,6 @@ def main():
         print(f"Lugares Turismo: 0 nuevos, se conserva snapshot anterior ({len(previous)})")
         return
 
-    # fallback final a seed local para primer arranque
     if not unique and SEED_FILE.exists():
         seed = read_json(SEED_FILE, [])
         if seed:
@@ -410,7 +595,7 @@ def main():
         raise RuntimeError("No se pudieron obtener lugares de ninguna fuente")
 
     write_json(OUT_FILE, unique)
-    update_sync("Lugares Turismo", len(unique), note="Bilbao Turismo + fallback OSM")
+    update_sync("Lugares Turismo", len(unique), note="Bilbao Turismo + fallback OSM con detalle")
     print(f"Lugares Turismo: {len(unique)} lugares")
 
 
