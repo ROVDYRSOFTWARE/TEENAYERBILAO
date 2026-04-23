@@ -1,29 +1,76 @@
-{% extends 'admin_base.html' %}
-{% block title %}Formulario lugar{% endblock %}
+{% extends 'base.html' %}
+{% block title %}{{ 'Editar lugar' if item else 'Nuevo lugar' }}{% endblock %}
+
 {% block content %}
-<div class="card">
-  <h1>{{ 'Editar lugar' if item else 'Nuevo lugar' }}</h1>
-  <form method="post">
-    <input type="hidden" name="id" value="{{ item.id if item else '' }}">
-    <label>Nombre</label><input name="nombre" value="{{ item.nombre if item else '' }}" required>
-    <label>Barrio</label><input name="barrio" value="{{ item.barrio if item else '' }}">
-    <label>Categoría</label><input name="categoria" value="{{ item.categoria if item else '' }}">
-    <label>Franja</label><input name="franja" value="{{ item.franja if item else '' }}">
-    <label>Precio tipo</label><input name="precio_tipo" value="{{ item.precio_tipo if item else '' }}">
-    
-    <label>Ubicación / recinto</label><input name="ubicacion" value="{{ item.ubicacion if item else '' }}">
-    <label>Dirección</label><input name="direccion" value="{{ item.direccion if item else '' }}">
-    <div class="grid" style="grid-template-columns:1fr 1fr; gap:16px;">
-      <div><label>Latitud</label><input name="latitud" value="{{ item.latitud if item else '' }}" placeholder="43.2630"></div>
-      <div><label>Longitud</label><input name="longitud" value="{{ item.longitud if item else '' }}" placeholder="-2.9350"></div>
-    </div>
-    <label>URL Google Maps</label><input name="maps_url" value="{{ item.maps_url if item else '' }}" placeholder="Se genera automáticamente si no se indica">
-    <p class="muted">Si indicas dirección o ubicación y dejas vacías latitud/longitud, el sistema intentará geocodificar automáticamente.</p>
-    <label>Fuente</label><input name="fuente" value="{{ item.fuente if item else '' }}">
-    <label>Tags</label><input name="tags" value="{{ (item.tags|join(', ')) if item else '' }}">
-    <label>Descripción</label><textarea name="descripcion" rows="5">{{ item.descripcion if item else '' }}</textarea>
-    <label>URL</label><input name="url" value="{{ item.url if item else '' }}">
-    <button class="btn" type="submit">Guardar</button>
-  </form>
-</div>
+<h1>{{ 'Editar lugar' if item else 'Nuevo lugar' }}</h1>
+
+<form method="post" class="card">
+  {% if item and item.id %}
+    <input type="hidden" name="id" value="{{ item.id }}">
+  {% endif %}
+
+  <label><strong>Nombre</strong></label>
+  <input type="text" name="nombre" value="{{ item.nombre if item else '' }}" style="width:100%; margin:8px 0 16px 0;" required>
+
+  <label><strong>Categoría</strong></label>
+  <select name="categoria" style="width:100%; margin:8px 0 16px 0;">
+    <option value="">-- Seleccionar --</option>
+    {% for value in options.categorias %}
+      <option value="{{ value }}" {% if item and item.categoria == value %}selected{% endif %}>{{ value }}</option>
+    {% endfor %}
+  </select>
+
+  <label><strong>Barrio</strong></label>
+  <select name="barrio" style="width:100%; margin:8px 0 16px 0;">
+    <option value="">-- Seleccionar --</option>
+    {% for value in options.barrios %}
+      <option value="{{ value }}" {% if item and item.barrio == value %}selected{% endif %}>{{ value }}</option>
+    {% endfor %}
+  </select>
+
+  <label><strong>Franja</strong></label>
+  <select name="franja" style="width:100%; margin:8px 0 16px 0;">
+    <option value="">-- Seleccionar --</option>
+    {% for value in options.franjas %}
+      <option value="{{ value }}" {% if item and item.franja == value %}selected{% endif %}>{{ value }}</option>
+    {% endfor %}
+  </select>
+
+  <label><strong>Precio</strong></label>
+  <select name="precio_tipo" style="width:100%; margin:8px 0 16px 0;">
+    <option value="">-- Seleccionar --</option>
+    {% for value in options.presupuesto %}
+      <option value="{{ value }}" {% if item and item.precio_tipo == value %}selected{% endif %}>{{ value }}</option>
+    {% endfor %}
+  </select>
+
+  <label><strong>Ubicación</strong></label>
+  <input type="text" name="ubicacion" value="{{ item.ubicacion if item else '' }}" style="width:100%; margin:8px 0 16px 0;">
+
+  <label><strong>Dirección</strong></label>
+  <input type="text" name="direccion" value="{{ item.direccion if item else '' }}" style="width:100%; margin:8px 0 16px 0;">
+
+  <label><strong>Latitud</strong></label>
+  <input type="text" name="latitud" value="{{ item.latitud if item else '' }}" style="width:100%; margin:8px 0 16px 0;">
+
+  <label><strong>Longitud</strong></label>
+  <input type="text" name="longitud" value="{{ item.longitud if item else '' }}" style="width:100%; margin:8px 0 16px 0;">
+
+  <label><strong>Maps URL</strong></label>
+  <input type="text" name="maps_url" value="{{ item.maps_url if item else '' }}" style="width:100%; margin:8px 0 16px 0;">
+
+  <label><strong>Fuente</strong></label>
+  <input type="text" name="fuente" value="{{ item.fuente if item else '' }}" style="width:100%; margin:8px 0 16px 0;">
+
+  <label><strong>URL</strong></label>
+  <input type="text" name="url" value="{{ item.url if item else '' }}" style="width:100%; margin:8px 0 16px 0;">
+
+  <label><strong>Tags</strong></label>
+  <input type="text" name="tags" value="{{ item.tags|join(', ') if item and item.tags else '' }}" placeholder="tag1, tag2, tag3" style="width:100%; margin:8px 0 16px 0;">
+
+  <label><strong>Descripción</strong></label>
+  <textarea name="descripcion" rows="6" style="width:100%; margin:8px 0 16px 0;">{{ item.descripcion if item else '' }}</textarea>
+
+  <button type="submit" class="btn">Guardar lugar</button>
+</form>
 {% endblock %}
