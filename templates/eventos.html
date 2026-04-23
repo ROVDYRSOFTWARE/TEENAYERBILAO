@@ -1,5 +1,4 @@
 {% extends 'base.html' %}
-
 {% block title %}{{ title or 'Eventos' }}{% endblock %}
 
 {% block content %}
@@ -13,18 +12,27 @@
           {% if item.categoria %}<span class="pill">{{ item.categoria }}</span>{% endif %}
           {% if item.barrio %}<span class="pill">{{ item.barrio }}</span>{% endif %}
           {% if item.franja %}<span class="pill">{{ item.franja }}</span>{% endif %}
+          {% if item.precio_tipo %}<span class="pill">{{ item.precio_tipo }}</span>{% endif %}
         </div>
 
         <h3 style="margin-bottom:8px;">
-          {{ item.titulo or item.nombre or 'Evento' }}
+          {{ item.titulo or 'Evento' }}
         </h3>
 
         {% if item.fecha %}
           <p><strong>Fecha:</strong> {{ item.fecha }}</p>
         {% endif %}
 
-        {% if item.ubicacion or item.direccion %}
-          <p><strong>Ubicación:</strong> {{ item.ubicacion or item.direccion }}</p>
+        {% if item.ubicacion %}
+          <p><strong>Lugar:</strong> {{ item.ubicacion }}</p>
+        {% endif %}
+
+        {% if item.direccion %}
+          <p><strong>Dirección:</strong> {{ item.direccion }}</p>
+        {% endif %}
+
+        {% if item.punto_quedada %}
+          <p><strong>Punto de quedada:</strong> {{ item.punto_quedada }}</p>
         {% endif %}
 
         {% if item.descripcion %}
@@ -32,8 +40,9 @@
         {% endif %}
 
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <a class="btn" href="{{ url_for('evento_detalle', event_id=item.id) }}">Ver detalle</a>
           {% if item.url %}
-            <a class="btn" href="{{ item.url }}" target="_blank" rel="noopener">Ver evento</a>
+            <a class="btn secondary" href="{{ item.url }}" target="_blank" rel="noopener">Web</a>
           {% endif %}
           {% if item._maps_url %}
             <a class="btn secondary" href="{{ item._maps_url }}" target="_blank" rel="noopener">Mapa</a>
@@ -46,7 +55,6 @@
   <div class="card">
     <h3>No hay eventos próximos</h3>
     <p>Ahora mismo no tenemos eventos con fecha actual o futura en la base de datos.</p>
-    <p>Prueba a actualizar las fuentes o vuelve a revisar más tarde.</p>
   </div>
 {% endif %}
 {% endblock %}
