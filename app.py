@@ -4,9 +4,11 @@ import uuid
 from functools import wraps
 from flask import Flask, Response, abort, flash, make_response, redirect, render_template, request, session, url_for
 from services import data_store, recommender, geocode, auto_update
+from datetime import datetime, date
+from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
-app.secret_key = "teenager-bilbao-local"
+app.secret_key = "teenayer-bilbao-local"
 app.config["ADMIN_PASSWORD"] = os.getenv("ADMIN_PASSWORD", "admin1234")
 data_store.init_files()
 
@@ -90,6 +92,46 @@ def place_rows():
         for row in data_store.load_places()
     ]
 
+def _today_madrid() -> date:
+    return datetime.now(ZoneInfo("Europe/Madrid")).date()
+
+
+def _parse_event_date(value: str) -> date | None:
+    if not value:
+        return None
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    try:
+        return datetime.strptime(raw[:10], "%Y-%m-%d").date()
+    except Exception:
+        pass
+
+    try:
+        return datetime.strptime(raw[:10], "%d/%m/%Y").date()
+    except Exception:
+        pass
+
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
+    except Exception:
+        pass
+
+    return None
+
+
+def upcoming_event_rows():
+    hoy = _today_madrid()
+    salida = []
+
+    for row in event_rows():
+        fecha = _parse_event_date(row.get("fecha", ""))
+        if fecha is None or fecha >= hoy:
+            salida.append(row)
+
+    return salida
 
 def form_list(name: str):
     values = request.form.get(name, "")
@@ -170,13 +212,13 @@ def task_auto_update():
 @app.route("/")
 def home():
     token = current_token()
-    ranked = recommender.rank_items(token, event_rows(), place_rows())[:6]
+    ranked = recommender.rank_items(token, upcoming_event_rows(), place_rows())[:6]
     return render_with_token("home.html", ranked=ranked)
 
 
 @app.route("/eventos")
 def eventos():
-    rows = sorted(event_rows(), key=lambda x: x.get("fecha", ""))
+    rows = sorted(upcoming_event_rows(), key=lambda x: x.get("fecha", ""))
     return render_with_token("eventos.html", title="Eventos", items=rows)
 
 
@@ -256,10 +298,9 @@ def preferencias():
 @app.route("/recomendado")
 def recomendado():
     token = current_token()
-    ranked = recommender.rank_items(token, event_rows(), place_rows())[:20]
+    ranked = recommender.rank_items(token, upcoming_event_rows(), place_rows())[:20]
     profile = recommender.get_profile(token)
     return render_with_token("recomendado.html", items=ranked, profile=profile)
-
 
 @app.route("/plan-hoy")
 def plan_hoy():
