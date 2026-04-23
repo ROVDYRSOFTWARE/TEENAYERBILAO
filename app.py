@@ -20,7 +20,7 @@ from flask import (
     url_for,
 )
 
-from services import auto_update, data_store, geocode, recommender, group_planner
+from services import auto_update, data_store, geocode, recommender, group_planner, share_plans
 
 app = Flask(__name__)
 app.secret_key = "teenayer-bilbao-local"
@@ -59,6 +59,12 @@ def render_with_token(template_name: str, **context):
     if "tb_token" not in request.cookies:
         response.set_cookie("tb_token", token, max_age=60 * 60 * 24 * 365)
     return response
+
+def public_base_url() -> str:
+    env = (os.getenv("PUBLIC_BASE_URL") or "").strip().rstrip("/")
+    if env:
+        return env
+    return request.url_root.rstrip("/")
 
 
 def build_maps_url(item: dict) -> str:
@@ -512,6 +518,73 @@ def plan_grupo():
         plan_modes=group_planner.group_mode_cards(),
     )
 
+@app.route("/compartir-plan-hoy", methods=["POST"])
+def compartir_plan_hoy():
+    token = current_token()
+    base_plan = recommender.plan_hoy(token, event_rows(), place_rows())
+    plan = group_planner.enrich_today_plan(
+        token=token,
+        plan=base_plan,
+        events=upcoming_event_rows(),
+        places=place_rows(),
+        profile=recommender.get_profile(token),
+    )
+
+    shared = share_plans.create_shared_plan(
+        kind="hoy",
+        owner_token=token,
+        plan=plan,
+        base_url=public_base_url(),
+    )
+    flash("Plan compartible creado.")
+    return redirect(url_for("plan_compartido", slug=shared["slug"]))
+
+
+@app.route("/compartir-plan-grupo", methods=["POST"])
+def compartir_plan_grupo():
+    token = current_token()
+
+    prefs = {
+        "group_size": request.form.get("group_size", "4").strip(),
+        "age_band": request.form.get("age_band", "14-17").strip(),
+        "budget": request.form.get("budget", "medio").strip(),
+        "energy": request.form.get("energy", "media").strip(),
+        "objective": request.form.get("objective", "diversion").strip(),
+        "weather": request.form.get("weather", "indiferente").strip(),
+        "duration": request.form.get("duration", "tarde").strip(),
+        "zone": request.form.get("zone", "").strip(),
+    }
+
+    plan = group_planner.build_group_plan(
+        token=token,
+        events=upcoming_event_rows(),
+        places=place_rows(),
+        profile=recommender.get_profile(token),
+        prefs=prefs,
+    )
+
+    shared = share_plans.create_shared_plan(
+        kind="grupo",
+        owner_token=token,
+        plan=plan,
+        base_url=public_base_url(),
+        source_prefs=prefs,
+    )
+    flash("Plan de grupo compartible creado.")
+    return redirect(url_for("plan_compartido", slug=shared["slug"]))
+
+
+@app.route("/plan-compartido/<slug>")
+def plan_compartido(slug: str):
+    shared = share_plans.get_shared_plan(slug)
+    if not shared:
+        return "Plan compartido no disponible o caducado.", 404
+
+    return render_with_token(
+        "plan_compartido.html",
+        shared=shared,
+        plan=shared.get("plan", {}),
+    )
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
