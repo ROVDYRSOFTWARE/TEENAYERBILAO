@@ -1,24 +1,52 @@
 {% extends 'base.html' %}
-{% block title %}{{ title }}{% endblock %}
+
+{% block title %}{{ title or 'Eventos' }}{% endblock %}
+
 {% block content %}
-<h1>{{ title }}</h1>
-<div class="grid">
-{% for item in items %}
-  <div class="card">
-    <div class="pill">{{ item.categoria }}</div>
-    <div class="pill">{{ item.barrio }}</div>
-    {% if item.franja %}<div class="pill">{{ item.franja }}</div>{% endif %}
-    <h3>{{ item.titulo or item.nombre }}</h3>
-    {% if item.fecha %}<p><strong>Fecha:</strong> {{ item.fecha }}</p>{% endif %}
-    {% if item.ubicacion or item.direccion %}<p><strong>Ubicación:</strong> {{ item.ubicacion or item.direccion }}</p>{% endif %}
-    <p>{{ item.descripcion[:160] }}{% if item.descripcion|length > 160 %}...{% endif %}</p>
-    {% if item._entity_type == 'evento' %}
-      <a class="btn" href="{{ url_for('evento_detalle', event_id=item.id) }}">Ver evento</a>
-    {% else %}
-      <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver lugar</a>
-    {% endif %}
-    {% if item._maps_url %}<a class="btn secondary" style="margin-left:8px;" href="{{ item._maps_url }}" target="_blank">Mapa</a>{% endif %}
+<h1>{{ title or 'Eventos' }}</h1>
+
+{% if items %}
+  <div class="grid">
+    {% for item in items %}
+      <div class="card">
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+          {% if item.categoria %}<span class="pill">{{ item.categoria }}</span>{% endif %}
+          {% if item.barrio %}<span class="pill">{{ item.barrio }}</span>{% endif %}
+          {% if item.franja %}<span class="pill">{{ item.franja }}</span>{% endif %}
+        </div>
+
+        <h3 style="margin-bottom:8px;">
+          {{ item.titulo or item.nombre or 'Evento' }}
+        </h3>
+
+        {% if item.fecha %}
+          <p><strong>Fecha:</strong> {{ item.fecha }}</p>
+        {% endif %}
+
+        {% if item.ubicacion or item.direccion %}
+          <p><strong>Ubicación:</strong> {{ item.ubicacion or item.direccion }}</p>
+        {% endif %}
+
+        {% if item.descripcion %}
+          <p>{{ item.descripcion }}</p>
+        {% endif %}
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          {% if item.url %}
+            <a class="btn" href="{{ item.url }}" target="_blank" rel="noopener">Ver evento</a>
+          {% endif %}
+          {% if item._maps_url %}
+            <a class="btn secondary" href="{{ item._maps_url }}" target="_blank" rel="noopener">Mapa</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
   </div>
-{% endfor %}
-</div>
+{% else %}
+  <div class="card">
+    <h3>No hay eventos próximos</h3>
+    <p>Ahora mismo no tenemos eventos con fecha actual o futura en la base de datos.</p>
+    <p>Prueba a actualizar las fuentes o vuelve a revisar más tarde.</p>
+  </div>
+{% endif %}
 {% endblock %}
