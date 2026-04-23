@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% block title %}Plan para grupo{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:16px;">
+  <h1>Plan para grupo</h1>
+  <p>Genera un plan sano, social y pensado para adolescentes de Bilbao y alrededores.</p>
+</div>
+
+<div class="grid" style="margin-bottom:16px;">
+  {% for mode in plan_modes %}
+    <div class="card">
+      <h3>{{ mode.title }}</h3>
+      <p>{{ mode.text }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+<form method="post" class="card" style="margin-bottom:16px;">
+  <div class="grid">
+    <div>
+      <label><strong>Número de personas</strong></label>
+      <select name="group_size" style="width:100%; margin-top:8px;">
+        {% for n in [2,3,4,5,6,7,8,9,10] %}
+          <option value="{{ n }}" {% if form_data.group_size|string == n|string %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label><strong>Edad aproximada</strong></label>
+      <select name="age_band" style="width:100%; margin-top:8px;">
+        {% for value in ['12-14', '14-17', '16-18'] %}
+          <option value="{{ value }}" {% if form_data.age_band == value %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label><strong>Presupuesto</strong></label>
+      <select name="budget" style="width:100%; margin-top:8px;">
+        {% for value in ['bajo', 'medio', 'alto'] %}
+          <option value="{{ value }}" {% if form_data.budget == value %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label><strong>Energía del grupo</strong></label>
+      <select name="energy" style="width:100%; margin-top:8px;">
+        {% for value in ['tranquila', 'media', 'alta'] %}
+          <option value="{{ value }}" {% if form_data.energy == value %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label><strong>Objetivo</strong></label>
+      <select name="objective" style="width:100%; margin-top:8px;">
+        <option value="diversion" {% if form_data.objective == 'diversion' %}selected{% endif %}>Diversión</option>
+        <option value="conocerse" {% if form_data.objective == 'conocerse' %}selected{% endif %}>Conocerse mejor</option>
+        <option value="moverse" {% if form_data.objective == 'moverse' %}selected{% endif %}>Moverse</option>
+        <option value="crear" {% if form_data.objective == 'crear' %}selected{% endif %}>Crear / descubrir</option>
+        <option value="desconectar" {% if form_data.objective == 'desconectar' %}selected{% endif %}>Desconectar</option>
+        <option value="compras" {% if form_data.objective == 'compras' %}selected{% endif %}>Compras + ocio</option>
+      </select>
+    </div>
+
+    <div>
+      <label><strong>Tiempo</strong></label>
+      <select name="weather" style="width:100%; margin-top:8px;">
+        <option value="indiferente" {% if form_data.weather == 'indiferente' %}selected{% endif %}>Indiferente</option>
+        <option value="lluvia" {% if form_data.weather == 'lluvia' %}selected{% endif %}>Llueve</option>
+        <option value="sol" {% if form_data.weather == 'sol' %}selected{% endif %}>Hace bueno</option>
+      </select>
+    </div>
+
+    <div>
+      <label><strong>Duración</strong></label>
+      <select name="duration" style="width:100%; margin-top:8px;">
+        <option value="1h" {% if form_data.duration == '1h' %}selected{% endif %}>1 hora</option>
+        <option value="2h" {% if form_data.duration == '2h' %}selected{% endif %}>2 horas</option>
+        <option value="tarde" {% if form_data.duration == 'tarde' %}selected{% endif %}>Tarde completa</option>
+      </select>
+    </div>
+
+    <div>
+      <label><strong>Zona de salida</strong></label>
+      <input type="text" name="zone" value="{{ form_data.zone or '' }}" placeholder="Ej. Indautxu, Deusto, Casco Viejo" style="width:100%; margin-top:8px;">
+    </div>
+  </div>
+
+  <div style="margin-top:16px;">
+    <button type="submit" class="btn">Generar plan de grupo</button>
+  </div>
+</form>
+
+{% if plan %}
+  <div class="card" style="margin-bottom:16px;">
+    <h2>{{ plan.summary.title }}</h2>
+    <p>{{ plan.summary.subtitle }}</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+      <span class="pill">{{ plan.summary.group_size }} personas</span>
+      <span class="pill">{{ plan.summary.age_band }}</span>
+      <span class="pill">{{ plan.summary.budget }}</span>
+      <span class="pill">{{ plan.summary.energy }}</span>
+      <span class="pill">{{ plan.summary.duration }}</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Principal</h2>
+      {% if plan.principal %}
+        <div class="pill">{{ plan.principal.categoria }}</div>
+        <h3>{{ plan.principal.titulo or plan.principal.nombre }}</h3>
+        {% if plan.principal.fecha %}<p><strong>Fecha:</strong> {{ plan.principal.fecha }}</p>{% endif %}
+        {% if plan.principal.ubicacion %}<p><strong>Lugar:</strong> {{ plan.principal.ubicacion }}</p>{% endif %}
+        {% if plan.principal.direccion %}<p><strong>Dirección:</strong> {{ plan.principal.direccion }}</p>{% endif %}
+        <p>{{ plan.principal.descripcion }}</p>
+        {% if plan.principal._maps_url %}<p><a class="btn secondary" href="{{ plan.principal._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
+      {% else %}
+        <p>No se ha encontrado principal.</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Comer / merendar</h2>
+      {% if plan.comida %}
+        <div class="pill">{{ plan.comida.categoria }}</div>
+        <h3>{{ plan.comida.titulo or plan.comida.nombre }}</h3>
+        {% if plan.comida.ubicacion %}<p><strong>Lugar:</strong> {{ plan.comida.ubicacion }}</p>{% endif %}
+        {% if plan.comida.direccion %}<p><strong>Dirección:</strong> {{ plan.comida.direccion }}</p>{% endif %}
+        {% if plan.comida.horario %}<p><strong>Horario:</strong> {{ plan.comida.horario }}</p>{% endif %}
+        <p>{{ plan.comida.descripcion }}</p>
+        {% if plan.comida._maps_url %}<p><a class="btn secondary" href="{{ plan.comida._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
+      {% else %}
+        <p>No se ha encontrado parada de comida.</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Extra</h2>
+      {% if plan.extra %}
+        <div class="pill">{{ plan.extra.categoria }}</div>
+        <h3>{{ plan.extra.titulo or plan.extra.nombre }}</h3>
+        {% if plan.extra.ubicacion %}<p><strong>Lugar:</strong> {{ plan.extra.ubicacion }}</p>{% endif %}
+        {% if plan.extra.direccion %}<p><strong>Dirección:</strong> {{ plan.extra.direccion }}</p>{% endif %}
+        {% if plan.extra.horario %}<p><strong>Horario:</strong> {{ plan.extra.horario }}</p>{% endif %}
+        <p>{{ plan.extra.descripcion }}</p>
+        {% if plan.extra._maps_url %}<p><a class="btn secondary" href="{{ plan.extra._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
+      {% else %}
+        <p>No se ha encontrado extra.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if plan.route %}
+    <div class="card" style="margin-top:16px;">
+      <h2>Desplazamiento estimado</h2>
+      {% if plan.route.total_km is not none %}
+        <p><strong>Distancia total:</strong> {{ plan.route.total_km }} km</p>
+        <p><strong>Tiempo andando aprox.:</strong> {{ plan.route.total_walk_minutes }} min</p>
+        <p><strong>Transporte recomendado:</strong> {{ plan.route.overall_transport }}</p>
+      {% else %}
+        <p>No hay suficientes coordenadas para calcular el desplazamiento exacto.</p>
+      {% endif %}
+
+      {% if plan.route.legs %}
+        <div style="margin-top:12px;">
+          {% for leg in plan.route.legs %}
+            <div style="padding:10px 0; border-top:1px solid rgba(255,255,255,.08);">
+              <strong>{{ leg.from }}</strong> → <strong>{{ leg.to }}</strong><br>
+              {% if leg.distance_km is not none %}
+                {{ leg.distance_km }} km · {{ leg.walk_minutes }} min andando · {{ leg.transport }}
+              {% else %}
+                Distancia no disponible · {{ leg.transport }}
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if plan.route.stops_note %}
+        <p style="margin-top:12px; opacity:.75;">{{ plan.route.stops_note }}</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if plan.tips %}
+    <div class="card" style="margin-top:16px;">
+      <h2>Consejos para que el plan salga bien</h2>
+      <ul>
+        {% for tip in plan.tips %}
+          <li>{{ tip }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+{% endif %}
+{% endblock %}
