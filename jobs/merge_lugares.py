@@ -10,6 +10,10 @@ SOURCE_FILES = [
 OUT_FILE = DATA_DIR / "lugares.json"
 
 
+def clean(value: str) -> str:
+    return " ".join(str(value or "").split()).strip()
+
+
 def infer_franja(tipo: str) -> str:
     t = (tipo or "").lower()
     if any(x in t for x in ["nightlife", "discoteca", "bar", "noche"]):
@@ -27,19 +31,33 @@ def _existing_index():
     return idx
 
 
+def best_query(direccion: str, ubicacion: str, barrio: str) -> str:
+    parts = []
+    if direccion:
+        parts.append(direccion)
+    if ubicacion and ubicacion not in parts:
+        parts.append(ubicacion)
+    if barrio and barrio not in parts:
+        parts.append(barrio)
+    parts.append("Bilbao")
+    return ", ".join([p for p in parts if p])
+
+
 def normalize(item: dict, existing: dict) -> dict:
     key = (item.get("fuente", ""), item.get("nombre", ""), item.get("url", ""))
     prev = existing.get(key, {})
 
-    barrio = item.get("zona", "") or prev.get("barrio", "")
-    ubicacion = item.get("zona", "") or prev.get("ubicacion", "") or item.get("nombre", "")
-    direccion = item.get("direccion", "") or prev.get("direccion", "")
-    lat = prev.get("latitud", "")
-    lon = prev.get("longitud", "")
-    maps_url = prev.get("maps_url", "")
+    nombre = clean(item.get("nombre", "")) or clean(prev.get("nombre", ""))
+    barrio = clean(item.get("zona", "")) or clean(prev.get("barrio", "")) or "Bilbao"
+    ubicacion = nombre or clean(prev.get("ubicacion", "")) or barrio
+    direccion = clean(item.get("direccion", "")) or clean(prev.get("direccion", ""))
+    horario = clean(item.get("horario", "")) or clean(prev.get("horario", ""))
+    lat = clean(prev.get("latitud", ""))
+    lon = clean(prev.get("longitud", ""))
+    maps_url = clean(prev.get("maps_url", ""))
 
     if not (lat and lon):
-        q = ", ".join([x for x in [direccion, ubicacion, barrio, "Bilbao"] if x])
+        q = best_query(direccion, ubicacion, barrio)
         geo = geocode.geocode(q)
         if geo:
             lat = geo.get("latitud", "")
@@ -50,18 +68,19 @@ def normalize(item: dict, existing: dict) -> dict:
 
     return {
         "id": prev.get("id") or item.get("id", ""),
-        "nombre": item.get("nombre", ""),
+        "nombre": nombre,
         "barrio": barrio,
         "categoria": item.get("tipo", "") or "lugar",
-        "franja": prev.get("franja") or infer_franja(item.get("tipo", "")),
-        "precio_tipo": item.get("precio", "") or prev.get("precio_tipo", ""),
+        "franja": clean(prev.get("franja", "")) or infer_franja(item.get("tipo", "")),
+        "precio_tipo": clean(item.get("precio", "")) or clean(prev.get("precio_tipo", "")),
         "ubicacion": ubicacion,
         "direccion": direccion,
+        "horario": horario,
         "latitud": lat,
         "longitud": lon,
         "maps_url": maps_url,
         "fuente": item.get("fuente", ""),
-        "descripcion": item.get("descripcion", "") or prev.get("descripcion", ""),
+        "descripcion": clean(item.get("descripcion", "")) or clean(prev.get("descripcion", "")),
         "url": item.get("url", ""),
         "tags": prev.get("tags", []),
         "auto_source": True,
@@ -77,7 +96,6 @@ def main():
     for path in SOURCE_FILES:
         source_items.extend(read_json(path, []))
 
-    # PROTECCIÓN: si la fuente está vacía pero ya había lugares, conserva el estado anterior
     current_places = data_store.load_places()
     if not source_items and current_places:
         update_sync("Lugares agregados", len(current_places), status="ok", note="Se conserva lugares.json anterior")
@@ -98,7 +116,7 @@ def main():
 
     merged.sort(key=lambda x: ((x.get("categoria") or ""), (x.get("nombre") or "")))
     write_json(OUT_FILE, merged)
-    update_sync("Lugares agregados", len(merged), note="Merge local de fuentes hacia esquema app")
+    update_sync("Lugares agregados", len(merged), note="Merge local de fuentes con dirección/horario")
     print(f"Lugares agregados: {len(merged)}")
 
 
