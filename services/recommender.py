@@ -1,9 +1,10 @@
 from __future__ import annotations
+
 from collections import Counter
-from datetime import datetime, date
-import re
+from datetime import date, datetime
 from typing import Iterable
 from zoneinfo import ZoneInfo
+
 from services import data_store
 
 
@@ -63,67 +64,16 @@ def _parse_event_date(value: str) -> date | None:
     return None
 
 
-def _parse_spanish_title_date(title: str) -> date | None:
-    if not title:
-        return None
-
-    meses = {
-        "enero": 1,
-        "febrero": 2,
-        "marzo": 3,
-        "abril": 4,
-        "mayo": 5,
-        "junio": 6,
-        "julio": 7,
-        "agosto": 8,
-        "septiembre": 9,
-        "setiembre": 9,
-        "octubre": 10,
-        "noviembre": 11,
-        "diciembre": 12,
-    }
-
-    raw = str(title).strip().lower()
-    m = re.search(r"(\d{1,2})\s+de\s+([a-záéíóú]+)", raw)
-    if not m:
-        return None
-
-    dia = int(m.group(1))
-    mes_txt = m.group(2)
-    mes = meses.get(mes_txt)
-    if not mes:
-        return None
-
-    hoy = _today_madrid()
-    year = hoy.year
-
-    try:
-        fecha = date(year, mes, dia)
-    except Exception:
-        return None
-
-    if (fecha - hoy).days > 180:
-        try:
-            fecha = date(year - 1, mes, dia)
-        except Exception:
-            return None
-
-    return fecha
-
-
-def _item_event_date(item: dict) -> date | None:
-    return _parse_event_date(item.get("fecha", "")) or _parse_spanish_title_date(item.get("titulo", ""))
-
-
-def _eventos_de_hoy(events: list[dict]) -> list[dict]:
+def _future_events(events: list[dict]) -> list[dict]:
     hoy = _today_madrid()
     salida = []
 
     for ev in events:
-        fecha = _item_event_date(ev)
-        if fecha == hoy:
+        fecha = _parse_event_date(ev.get("fecha", ""))
+        if fecha and fecha >= hoy:
             salida.append(ev)
 
+    salida.sort(key=lambda x: (_parse_event_date(x.get("fecha", "")) or date.max, x.get("titulo", "")))
     return salida
 
 
@@ -219,25 +169,15 @@ def score_item(profile: dict, item: dict, popularity_counter: Counter | None = N
         score += min(popularity_counter.get(key, 0), 20) * 0.2
 
     if item.get("_entity_type") == "evento":
-        fecha = _item_event_date(item)
+        fecha = _parse_event_date(item.get("fecha", ""))
         if fecha:
             days_delta = (fecha - _today_madrid()).days
             if 0 <= days_delta <= 7:
                 score += 3
             elif days_delta < 0:
                 score -= 2
-        else:
-            score -= 5
 
     return round(score, 3)
-
-
-def _rank_sort_key(item: dict):
-    score = item.get("score", 0)
-    if item.get("_entity_type") == "evento":
-        fecha = _item_event_date(item) or date.max
-        return (-score, fecha, item.get("titulo", ""))
-    return (-score, date.max, item.get("nombre", ""))
 
 
 def rank_items(token: str, events: list[dict], places: list[dict]) -> list[dict]:
@@ -250,28 +190,47 @@ def rank_items(token: str, events: list[dict], places: list[dict]) -> list[dict]
         row["score"] = score_item(profile, row, pop)
         ranked.append(row)
 
-    ranked.sort(key=_rank_sort_key)
+    ranked.sort(key=lambda x: (x.get("score", 0), x.get("fecha", "")), reverse=True)
     return ranked
 
 
 def plan_hoy(token: str, events: list[dict], places: list[dict]) -> dict:
-    eventos_hoy = _eventos_de_hoy(events)
-    ranked = rank_items(token, eventos_hoy, places)
+    eventos_futuros = _future_events(events)
+    ranked = rank_items(token, eventos_futuros, places)
 
     principal = next((x for x in ranked if x.get("_entity_type") == "evento"), None)
 
-    barrio_ref = principal.get("barrio") if principal else None
+    if principal:
+        barrio_ref = principal.get("barrio")
+        compatibles = [
+            x for x in ranked
+            if x.get("_entity_type") == "lugar"
+            and (not barrio_ref or x.get("barrio") == barrio_ref)
+        ]
+    else:
+        compatibles = [x for x in ranked if x.get("_entity_type") == "lugar"]
 
-    compatibles = [
-        x for x in ranked
-        if x.get("_entity_type") == "lugar"
-        and (not barrio_ref or x.get("barrio") == barrio_ref)
-    ]
+        principal = next(
+            (
+                x for x in compatibles
+                if x.get("categoria") in {
+                    "actividad", "bolera", "escape-room", "arcade", "cine",
+                    "museo", "jump-park", "deporte", "quedada"
+                }
+            ),
+            None,
+        )
+
+        if principal and principal in compatibles:
+            compatibles = [x for x in compatibles if x != principal]
 
     comida = next(
         (
             x for x in compatibles
-            if x.get("categoria") in {"comida", "cafe", "bubble-tea", "restaurante"}
+            if x.get("categoria") in {
+                "comida", "cafe", "bubble-tea", "restaurante",
+                "cafeteria", "heladeria", "hamburgueseria", "pizza", "merendar"
+            }
         ),
         None,
     )
@@ -279,7 +238,12 @@ def plan_hoy(token: str, events: list[dict], places: list[dict]) -> dict:
     extra = next(
         (
             x for x in compatibles
-            if x.get("franja") in {"tarde", "noche"} and x != comida
+            if x != comida and x != principal
+            and x.get("categoria") in {
+                "actividad", "bolera", "escape-room", "arcade", "cine",
+                "museo", "compras", "ropa", "sneakers", "manga", "regalos",
+                "quedada", "paseo", "nightlife"
+            }
         ),
         None,
     )
