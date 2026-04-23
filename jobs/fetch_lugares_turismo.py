@@ -1,18 +1,19 @@
 from __future__ import annotations
+
 import hashlib
+import json
 import re
 import time
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlencode, urljoin, urlparse
+from urllib.request import Request, urlopen
 
-import requests
 from bs4 import BeautifulSoup
 
 from jobs.common import FUENTES_DIR, fetch_url, read_json, update_sync, write_json
 
 URLS = [
     ("restaurante", "https://www.bilbaoturismo.net/BilbaoTurismo/en/restaurantes"),
-    ("nightlife", "https://www.bilbaoturismo.net/BilbaoTurismo/en/my-bilbao/nightlife"),
     ("actividad", "https://bilbaoturismo.net/BilbaoTurismo/en/unique-activities"),
 ]
 
@@ -41,13 +42,6 @@ BAD_URL_PARTS = [
 GOOD_ACTIVITY_HINTS = ["/unique-activities/"]
 GOOD_RESTAURANT_HINTS = ["/restaurantes/"]
 
-NIGHTLIFE_BLACKLIST = {
-    "autocaravaning", "albergue", "apartamento", "arriaga", "arte y cultura",
-    "basque design", "bilbao bizkaia card", "bilbobentura", "azkuna zentroa",
-    "agenda", "artxanda", "artxanda bilbao", "about us", "accomodation",
-    "accommodation",
-}
-
 OVERPASS_ENDPOINTS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
@@ -55,7 +49,19 @@ OVERPASS_ENDPOINTS = [
 
 BILBAO_LAT = 43.2630
 BILBAO_LON = -2.9350
-RADIUS_METERS = 6500
+RADIUS_METERS = 7000
+
+SHOP_TYPES = {
+    "clothes", "shoes", "sports", "books", "comics", "gift",
+    "perfumery", "cosmetics", "beauty", "bag", "mall",
+    "department_store", "jewelry",
+}
+
+TEEN_UNSAFE_WORDS = {
+    "pub", "cocktail", "whisky", "whiskey", "vodka", "rum", "gin",
+    "taberna", "cervec", "beer", "txoko", "nightclub", "discoteca",
+    "apuestas", "bet", "casino",
+}
 
 
 def clean(text: str) -> str:
@@ -73,7 +79,6 @@ def valid_name(text: str) -> bool:
         return False
 
     low = t.lower()
-
     if low in BAD_TEXTS:
         return False
 
@@ -99,38 +104,21 @@ def valid_url(category: str, url: str) -> bool:
     if category == "restaurante":
         return any(x in u for x in GOOD_RESTAURANT_HINTS)
 
-    if category == "nightlife":
-        return "/nightlife" in u
-
     return True
 
 
-def nightlife_name_ok(name: str) -> bool:
-    low = name.lower()
-
-    if low in NIGHTLIFE_BLACKLIST:
-        return False
-
-    if len(name.split()) == 1 and len(name) < 4:
-        return False
-
-    generic_bits = [
-        "arte", "cultura", "card", "design", "apartamento",
-        "albergue", "autocaravaning",
-    ]
-    if any(bit in low for bit in generic_bits):
-        return False
-
-    return True
+def teen_safe(name: str, desc: str = "") -> bool:
+    txt = clean(f"{name} {desc}").lower()
+    return not any(x in txt for x in TEEN_UNSAFE_WORDS)
 
 
 def likely_address(text: str) -> bool:
     low = clean(text).lower()
     address_tokens = [
         "calle", "c/", "plaza", "avda", "avenida", "alameda", "camino",
-        "gran vía", "gran via", "ibáñez", "ibanez", "licenciado", "sabino",
-        "lehendakari", "lehendakaria", "ramón y cajal", "ramon y cajal",
-        "colon", "hurtado", "moyua", "bilbao", "480"
+        "gran vía", "gran via", "licenciado", "sabino", "lehendakari",
+        "lehendakaria", "ramón y cajal", "ramon y cajal", "colón", "colon",
+        "hurtado", "moyua", "bilbao", "480",
     ]
     has_digit = bool(re.search(r"\d", low))
     return has_digit or any(tok in low for tok in address_tokens)
@@ -241,6 +229,55 @@ def fetch_detail_metadata(url: str) -> dict:
     }
 
 
+def fetch_with_retries(url: str, attempts: int = 3, pause: float = 2.0) -> str:
+    last_exc = None
+    for _ in range(attempts):
+        try:
+            return fetch_url(url, timeout=60)
+        except Exception as exc:
+            last_exc = exc
+            time.sleep(pause)
+    raise last_exc
+
+
+def infer_food_type(name: str, desc: str) -> str:
+    txt = clean(f"{name} {desc}").lower()
+
+    if "bubble" in txt or "boba" in txt:
+        return "bubble-tea"
+    if "helad" in txt or "ice cream" in txt or "gelato" in txt:
+        return "heladeria"
+    if "burger" in txt or "hamburg" in txt:
+        return "hamburgueseria"
+    if "pizza" in txt or "pizzer" in txt:
+        return "pizza"
+    if "coffee" in txt or "café" in txt or "cafe" in txt or "cafeter" in txt:
+        return "cafeteria"
+    if "bakery" in txt or "pasteler" in txt or "donut" in txt or "cookie" in txt:
+        return "merendar"
+    return "restaurante"
+
+
+def infer_activity_type(name: str, desc: str) -> str:
+    txt = clean(f"{name} {desc}").lower()
+
+    if "escape" in txt:
+        return "escape-room"
+    if "arcade" in txt or "recreativa" in txt:
+        return "arcade"
+    if "bolera" in txt or "bowling" in txt:
+        return "bolera"
+    if "jump" in txt or "trampoline" in txt:
+        return "jump-park"
+    if "cine" in txt or "cinema" in txt:
+        return "cine"
+    if "museo" in txt or "museum" in txt or "gallery" in txt:
+        return "museo"
+    if "park" in txt or "parque" in txt or "paseo" in txt or "plaza" in txt:
+        return "quedada"
+    return "actividad"
+
+
 def add_item(
     items: list[dict],
     seen: set,
@@ -261,10 +298,10 @@ def add_item(
     if not valid_name(name):
         return
 
-    if url and not valid_url(category, url):
+    if url and not valid_url("actividad" if category not in {"restaurante"} else "restaurante", url):
         return
 
-    if category == "nightlife" and not nightlife_name_ok(name):
+    if not teen_safe(name, desc):
         return
 
     key = (category, name.lower(), (url or "").lower())
@@ -303,10 +340,11 @@ def parse_restaurantes(soup: BeautifulSoup, base_url: str) -> list[dict]:
             continue
 
         meta = fetch_detail_metadata(url)
+        specific = infer_food_type(name, meta.get("descripcion", ""))
         add_item(
             items,
             seen,
-            "restaurante",
+            specific,
             name,
             url,
             desc=meta.get("descripcion", ""),
@@ -333,10 +371,11 @@ def parse_unique_activities(soup: BeautifulSoup, base_url: str) -> list[dict]:
             continue
 
         meta = fetch_detail_metadata(url)
+        specific = infer_activity_type(name, meta.get("descripcion", ""))
         add_item(
             items,
             seen,
-            "actividad",
+            specific,
             name,
             url,
             desc=meta.get("descripcion", ""),
@@ -346,84 +385,23 @@ def parse_unique_activities(soup: BeautifulSoup, base_url: str) -> list[dict]:
         )
 
     return items
-
-
-def parse_nightlife(soup: BeautifulSoup, base_url: str) -> list[dict]:
-    items = []
-    seen = set()
-
-    meta = fetch_detail_metadata(base_url)
-
-    for img in soup.select("img[alt]"):
-        name = clean(img.get("alt", "")).replace("Image:", "").strip()
-        add_item(
-            items,
-            seen,
-            "nightlife",
-            name,
-            base_url,
-            desc=meta.get("descripcion", ""),
-            zona=meta.get("zona", "Bilbao"),
-            direccion=meta.get("direccion", ""),
-            horario=meta.get("horario", ""),
-        )
-
-    for a in soup.select("a[href]"):
-        name = clean(a.get_text(" ", strip=True))
-        href = clean(a.get("href", ""))
-        if not href:
-            continue
-
-        url = urljoin(base_url, href)
-        if "bilbaoturismo.net" not in urlparse(url).netloc:
-            continue
-
-        item_meta = fetch_detail_metadata(url)
-        add_item(
-            items,
-            seen,
-            "nightlife",
-            name,
-            url,
-            desc=item_meta.get("descripcion", ""),
-            zona=item_meta.get("zona", "Bilbao"),
-            direccion=item_meta.get("direccion", ""),
-            horario=item_meta.get("horario", ""),
-        )
-
-    return items
-
-
-def fetch_with_retries(url: str, attempts: int = 3, pause: float = 2.0) -> str:
-    last_exc = None
-    for _ in range(attempts):
-        try:
-            return fetch_url(url, timeout=60)
-        except Exception as exc:
-            last_exc = exc
-            time.sleep(pause)
-    raise last_exc
 
 
 def overpass_query() -> str:
     return f"""
 [out:json][timeout:60];
 (
-  node["amenity"~"restaurant|cafe|bar|pub|fast_food|ice_cream|nightclub"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
-  way["amenity"~"restaurant|cafe|bar|pub|fast_food|ice_cream|nightclub"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
-  relation["amenity"~"restaurant|cafe|bar|pub|fast_food|ice_cream|nightclub"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
+  node["amenity"~"restaurant|cafe|fast_food|ice_cream|cinema|theatre|arts_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
+  way["amenity"~"restaurant|cafe|fast_food|ice_cream|cinema|theatre|arts_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
+  relation["amenity"~"restaurant|cafe|fast_food|ice_cream|cinema|theatre|arts_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
 
   node["tourism"~"museum|gallery|attraction"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
   way["tourism"~"museum|gallery|attraction"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
   relation["tourism"~"museum|gallery|attraction"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
 
-  node["amenity"~"cinema|theatre|arts_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
-  way["amenity"~"cinema|theatre|arts_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
-  relation["amenity"~"cinema|theatre|arts_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
-
-  node["leisure"~"bowling_alley|escape_game|sports_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
-  way["leisure"~"bowling_alley|escape_game|sports_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
-  relation["leisure"~"bowling_alley|escape_game|sports_centre"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
+  node["leisure"~"bowling_alley|escape_game|sports_centre|amusement_arcade|trampoline_park"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
+  way["leisure"~"bowling_alley|escape_game|sports_centre|amusement_arcade|trampoline_park"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
+  relation["leisure"~"bowling_alley|escape_game|sports_centre|amusement_arcade|trampoline_park"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
 
   node["shop"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
   way["shop"](around:{RADIUS_METERS},{BILBAO_LAT},{BILBAO_LON});
@@ -433,26 +411,19 @@ out center tags;
 """.strip()
 
 
-def osm_category(tags: dict) -> str:
-    amenity = (tags.get("amenity") or "").lower()
-    tourism = (tags.get("tourism") or "").lower()
-    leisure = (tags.get("leisure") or "").lower()
-    shop = (tags.get("shop") or "").lower()
-
-    if amenity in {"bar", "pub", "nightclub"}:
-        return "nightlife"
-    if amenity in {"restaurant", "cafe", "fast_food", "ice_cream"}:
-        return "restaurante"
-    if tourism in {"museum", "gallery", "attraction"}:
-        return "actividad"
-    if amenity in {"cinema", "theatre", "arts_centre"}:
-        return "actividad"
-    if leisure in {"bowling_alley", "escape_game", "sports_centre"}:
-        return "actividad"
-    if shop:
-        return "compra"
-
-    return "actividad"
+def _overpass_post(endpoint: str, query: str) -> dict:
+    data = urlencode({"data": query}).encode("utf-8")
+    req = Request(
+        endpoint,
+        data=data,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "TeenagerBilbao/1.0",
+        },
+        method="POST",
+    )
+    with urlopen(req, timeout=90) as resp:
+        return json.loads(resp.read().decode("utf-8", errors="ignore"))
 
 
 def compose_address(tags: dict) -> str:
@@ -465,7 +436,74 @@ def compose_address(tags: dict) -> str:
     return clean(" ".join([p for p in parts if p]))
 
 
-def fetch_osm_fallback() -> list[dict]:
+def osm_specific_type(tags: dict) -> str | None:
+    amenity = (tags.get("amenity") or "").lower()
+    tourism = (tags.get("tourism") or "").lower()
+    leisure = (tags.get("leisure") or "").lower()
+    shop = (tags.get("shop") or "").lower()
+    name = clean(tags.get("name", "")).lower()
+    cuisine = clean(tags.get("cuisine", "")).lower()
+
+    txt = f"{name} {cuisine}"
+
+    if amenity == "ice_cream":
+        return "heladeria"
+    if amenity == "cafe":
+        if "bubble" in txt or "boba" in txt:
+            return "bubble-tea"
+        return "cafeteria"
+    if amenity in {"restaurant", "fast_food"}:
+        if "burger" in txt or "hamburg" in txt:
+            return "hamburgueseria"
+        if "pizza" in txt or "pizzer" in txt:
+            return "pizza"
+        if "bubble" in txt or "boba" in txt:
+            return "bubble-tea"
+        return "restaurante"
+
+    if tourism in {"museum", "gallery"}:
+        return "museo"
+    if tourism == "attraction":
+        return "actividad"
+
+    if amenity == "cinema":
+        return "cine"
+    if amenity in {"theatre", "arts_centre"}:
+        return "actividad"
+
+    if leisure == "bowling_alley":
+        return "bolera"
+    if leisure == "escape_game":
+        return "escape-room"
+    if leisure == "amusement_arcade":
+        return "arcade"
+    if leisure == "trampoline_park":
+        return "jump-park"
+    if leisure == "sports_centre":
+        return "actividad"
+
+    if shop:
+        if shop == "clothes":
+            return "ropa"
+        if shop in {"shoes", "sports"}:
+            if any(x in name for x in ["sneaker", "snkrs", "foot", "shoe"]):
+                return "sneakers"
+            return "ropa"
+        if shop in {"books", "comics"}:
+            if any(x in name for x in ["manga", "comic", "anime"]):
+                return "manga"
+            return "regalos"
+        if shop in {"gift", "jewelry", "bag"}:
+            return "regalos"
+        if shop in {"beauty", "cosmetics", "perfumery"}:
+            return "belleza"
+        if shop in {"mall", "department_store"}:
+            return "compras"
+
+    return None
+
+
+def fetch_osm_catalog() -> list[dict]:
     query = overpass_query()
     items = []
     seen = set()
@@ -473,9 +511,7 @@ def fetch_osm_fallback() -> list[dict]:
 
     for endpoint in OVERPASS_ENDPOINTS:
         try:
-            response = requests.post(endpoint, data={"data": query}, timeout=90)
-            response.raise_for_status()
-            payload = response.json()
+            payload = _overpass_post(endpoint, query)
             elements = payload.get("elements", [])
 
             for el in elements:
@@ -484,8 +520,8 @@ def fetch_osm_fallback() -> list[dict]:
                 if not valid_name(name):
                     continue
 
-                category = osm_category(tags)
-                if category == "nightlife" and not nightlife_name_ok(name):
+                category = osm_specific_type(tags)
+                if not category:
                     continue
 
                 lat = el.get("lat") or (el.get("center") or {}).get("lat")
@@ -508,6 +544,10 @@ def fetch_osm_fallback() -> list[dict]:
                     )
                 )
                 horario = clean(tags.get("opening_hours", ""))
+                zona = tags.get("addr:suburb", "") or tags.get("addr:neighbourhood", "") or infer_barrio_from_text(address)
+
+                if not teen_safe(name, desc):
+                    continue
 
                 key = (category, name.lower(), url.lower())
                 if key in seen:
@@ -521,7 +561,7 @@ def fetch_osm_fallback() -> list[dict]:
                         "tipo": category,
                         "nombre": name,
                         "descripcion": desc[:500],
-                        "zona": tags.get("addr:suburb", "") or tags.get("addr:neighbourhood", "") or infer_barrio_from_text(address),
+                        "zona": zona or "Bilbao",
                         "direccion": address,
                         "precio": "",
                         "horario": horario,
@@ -551,13 +591,18 @@ def main():
 
             if category == "restaurante":
                 lugares.extend(parse_restaurantes(soup, url))
-            elif category == "nightlife":
-                lugares.extend(parse_nightlife(soup, url))
             else:
                 lugares.extend(parse_unique_activities(soup, url))
 
         except Exception as exc:
             print(f"Aviso: no se pudo procesar {url}: {exc}")
+
+    try:
+        osm_items = fetch_osm_catalog()
+        lugares.extend(osm_items)
+        print(f"OSM catálogo: {len(osm_items)} lugares")
+    except Exception as exc:
+        print(f"Aviso: no se pudo obtener catálogo OSM: {exc}")
 
     unique = []
     seen = set()
@@ -567,14 +612,6 @@ def main():
             continue
         seen.add(key)
         unique.append(item)
-
-    if not unique:
-        print("Bilbao Turismo sin resultados válidos. Intentando fallback OpenStreetMap...")
-        try:
-            unique = fetch_osm_fallback()
-            print(f"Fallback OSM: {len(unique)} lugares")
-        except Exception as exc:
-            print(f"Fallback OSM también falló: {exc}")
 
     previous = read_json(OUT_FILE, [])
     if not unique and previous:
@@ -595,7 +632,7 @@ def main():
         raise RuntimeError("No se pudieron obtener lugares de ninguna fuente")
 
     write_json(OUT_FILE, unique)
-    update_sync("Lugares Turismo", len(unique), note="Bilbao Turismo + fallback OSM con detalle")
+    update_sync("Lugares Turismo", len(unique), note="Turismo + OSM orientado a adolescentes")
     print(f"Lugares Turismo: {len(unique)} lugares")
 
 
