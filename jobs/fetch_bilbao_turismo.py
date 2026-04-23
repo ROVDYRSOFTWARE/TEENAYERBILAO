@@ -1,6 +1,10 @@
 from __future__ import annotations
+
+import hashlib
 import re
+
 from bs4 import BeautifulSoup
+
 from jobs.common import FUENTES_DIR, fetch_url, update_sync, write_json
 
 URL = "https://www.bilbaoturismo.net/BilbaoTurismo/en/big-events"
@@ -11,7 +15,12 @@ def clean(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
 
-def parse_dates(text: str):
+def stable_id(*parts: str) -> str:
+    raw = "||".join(parts).encode("utf-8", errors="ignore")
+    return "turismo-" + hashlib.sha1(raw).hexdigest()[:12]
+
+
+def parse_dates(text: str) -> tuple[str, str]:
     m = re.search(r"(\d{2}/\d{2}/\d{4})\s*-\s*(\d{2}/\d{2}/\d{4})", text)
     if not m:
         return "", ""
@@ -25,40 +34,62 @@ def main():
     soup = BeautifulSoup(html, "html.parser")
     eventos = []
 
-    text = soup.get_text("\n", strip=True)
+    lines = [clean(x) for x in soup.get_text("\n", strip=True).splitlines()]
+    lines = [x for x in lines if x]
 
-    pattern = re.compile(
-        r"\s*([A-ZÁÉÍÓÚÜÑ0-9][^\n]{3,80}?)\s*\n\s*(\d{2}/\d{2}/\d{4}\s*-\s*\d{2}/\d{2}/\d{4})",
-        re.M,
-    )
+    ignored = {
+        "Highlights",
+        "Search by dates",
+        "April", "May", "June", "July", "August", "September",
+        "October", "November", "December", "January", "February", "March",
+    }
 
-    for idx, match in enumerate(pattern.finditer(text), start=1):
-        titulo = clean(match.group(1))
-        if titulo.lower() in {"highlights", "search by dates"}:
+    prev_title = ""
+    for line in lines:
+        if re.fullmatch(r"\d{2}/\d{2}/\d{4}\s*-\s*\d{2}/\d{2}/\d{4}", line):
+            if not prev_title or prev_title in ignored:
+                continue
+
+            fecha_inicio, fecha_fin = parse_dates(line)
+            if not fecha_inicio:
+                continue
+
+            eventos.append(
+                {
+                    "id": stable_id(prev_title, fecha_inicio, fecha_fin),
+                    "fuente": "Bilbao Turismo",
+                    "tipo": "gran evento",
+                    "titulo": prev_title,
+                    "descripcion": "",
+                    "fecha_inicio": fecha_inicio,
+                    "fecha_fin": fecha_fin,
+                    "hora": "",
+                    "zona": "Bilbao",
+                    "edad": "",
+                    "precio": "",
+                    "url": URL,
+                }
+            )
+            prev_title = ""
             continue
 
-        fecha_inicio, fecha_fin = parse_dates(match.group(2))
+        if line not in ignored and len(line) >= 4:
+            prev_title = line
 
-        eventos.append(
-            {
-                "id": f"turismo-{idx}",
-                "fuente": "Bilbao Turismo",
-                "tipo": "gran evento",
-                "titulo": titulo,
-                "descripcion": "",
-                "fecha_inicio": fecha_inicio,
-                "fecha_fin": fecha_fin,
-                "hora": "",
-                "zona": "Bilbao",
-                "edad": "",
-                "precio": "",
-                "url": URL,
-            }
-        )
+    unique = []
+    seen = set()
+    for item in eventos:
+        key = (item["titulo"], item["fecha_inicio"], item["fecha_fin"])
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
 
-    write_json(OUT_FILE, eventos)
-    update_sync("Bilbao Turismo", len(eventos), note="Big events")
-    print(f"Bilbao Turismo: {len(eventos)} eventos")
+    unique.sort(key=lambda x: (x.get("fecha_inicio", "9999-99-99"), x.get("titulo", "")))
+
+    write_json(OUT_FILE, unique)
+    update_sync("Bilbao Turismo", len(unique), note="Big events")
+    print(f"Bilbao Turismo: {len(unique)} eventos")
 
 
 if __name__ == "__main__":
