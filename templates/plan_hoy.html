@@ -2,7 +2,13 @@
 {% block title %}Plan hoy{% endblock %}
 
 {% block content %}
-<h1>Plan de hoy</h1>
+<div class="card" style="margin-bottom:16px;">
+  <h1>Plan de hoy</h1>
+  {% if plan.summary %}
+    <p>{{ plan.summary.title }}</p>
+    <p style="opacity:.8;">{{ plan.summary.subtitle }}</p>
+  {% endif %}
+</div>
 
 <div class="grid">
   <div class="card">
@@ -14,24 +20,26 @@
       {% if plan.principal.fecha %}
         <p><strong>Fecha:</strong> {{ plan.principal.fecha }}</p>
       {% endif %}
-
       {% if plan.principal.ubicacion %}
         <p><strong>Lugar:</strong> {{ plan.principal.ubicacion }}</p>
       {% endif %}
-
       {% if plan.principal.direccion %}
         <p><strong>Dirección:</strong> {{ plan.principal.direccion }}</p>
       {% endif %}
-
       {% if plan.principal.punto_quedada %}
         <p><strong>Punto de quedada:</strong> {{ plan.principal.punto_quedada }}</p>
       {% endif %}
 
       <p>{{ plan.principal.descripcion }}</p>
 
-      {% if plan.principal._maps_url %}
-        <p><a class="btn secondary" href="{{ plan.principal._maps_url }}" target="_blank">Mapa</a></p>
-      {% endif %}
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+        {% if plan.principal._maps_url %}
+          <a class="btn secondary" href="{{ plan.principal._maps_url }}" target="_blank">Mapa</a>
+        {% endif %}
+        {% if plan.principal.url %}
+          <a class="btn" href="{{ plan.principal.url }}" target="_blank" rel="noopener">Ver más</a>
+        {% endif %}
+      </div>
     {% else %}
       <p>No hay principal.</p>
     {% endif %}
@@ -46,20 +54,23 @@
       {% if plan.comida.ubicacion %}
         <p><strong>Lugar:</strong> {{ plan.comida.ubicacion }}</p>
       {% endif %}
-
       {% if plan.comida.direccion %}
         <p><strong>Dirección:</strong> {{ plan.comida.direccion }}</p>
       {% endif %}
-
       {% if plan.comida.horario %}
         <p><strong>Horario:</strong> {{ plan.comida.horario }}</p>
       {% endif %}
 
       <p>{{ plan.comida.descripcion }}</p>
 
-      {% if plan.comida._maps_url %}
-        <p><a class="btn secondary" href="{{ plan.comida._maps_url }}" target="_blank">Mapa</a></p>
-      {% endif %}
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+        {% if plan.comida._maps_url %}
+          <a class="btn secondary" href="{{ plan.comida._maps_url }}" target="_blank">Mapa</a>
+        {% endif %}
+        {% if plan.comida.url %}
+          <a class="btn" href="{{ plan.comida.url }}" target="_blank" rel="noopener">Ver más</a>
+        {% endif %}
+      </div>
     {% else %}
       <p>No hay propuesta de comida.</p>
     {% endif %}
@@ -74,23 +85,59 @@
       {% if plan.extra.ubicacion %}
         <p><strong>Lugar:</strong> {{ plan.extra.ubicacion }}</p>
       {% endif %}
-
       {% if plan.extra.direccion %}
         <p><strong>Dirección:</strong> {{ plan.extra.direccion }}</p>
       {% endif %}
-
       {% if plan.extra.horario %}
         <p><strong>Horario:</strong> {{ plan.extra.horario }}</p>
       {% endif %}
 
       <p>{{ plan.extra.descripcion }}</p>
 
-      {% if plan.extra._maps_url %}
-        <p><a class="btn secondary" href="{{ plan.extra._maps_url }}" target="_blank">Mapa</a></p>
-      {% endif %}
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+        {% if plan.extra._maps_url %}
+          <a class="btn secondary" href="{{ plan.extra._maps_url }}" target="_blank">Mapa</a>
+        {% endif %}
+        {% if plan.extra.url %}
+          <a class="btn" href="{{ plan.extra.url }}" target="_blank" rel="noopener">Ver más</a>
+        {% endif %}
+      </div>
     {% else %}
       <p>No hay extra.</p>
     {% endif %}
   </div>
 </div>
+
+{% if plan.route %}
+  <div class="card" style="margin-top:16px;">
+    <h2>Desplazamiento estimado</h2>
+
+    {% if plan.route.total_km is not none %}
+      <p><strong>Distancia total:</strong> {{ plan.route.total_km }} km</p>
+      <p><strong>Tiempo andando aprox.:</strong> {{ plan.route.total_walk_minutes }} min</p>
+      <p><strong>Transporte recomendado:</strong> {{ plan.route.overall_transport }}</p>
+    {% else %}
+      <p>No hay suficientes coordenadas para calcular distancias exactas.</p>
+    {% endif %}
+
+    {% if plan.route.legs %}
+      <div style="margin-top:12px;">
+        {% for leg in plan.route.legs %}
+          <div style="padding:10px 0; border-top:1px solid rgba(255,255,255,.08);">
+            <strong>{{ leg.from }}</strong> → <strong>{{ leg.to }}</strong><br>
+            {% if leg.distance_km is not none %}
+              {{ leg.distance_km }} km · {{ leg.walk_minutes }} min andando · {{ leg.transport }}
+            {% else %}
+              Distancia no disponible · {{ leg.transport }}
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if plan.route.stops_note %}
+      <p style="margin-top:12px; opacity:.75;">{{ plan.route.stops_note }}</p>
+    {% endif %}
+  </div>
+{% endif %}
 {% endblock %}
