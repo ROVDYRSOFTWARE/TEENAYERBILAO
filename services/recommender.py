@@ -106,18 +106,21 @@ def learn_from_item(token: str, item: dict, action: str = "view") -> None:
     })
 
 
-def apply_preferences(token: str, categorias: list[str], barrios: list[str], franjas: list[str], presupuesto: list[str]) -> None:
+def set_manual_preferences(
+    token: str,
+    categorias: list[str],
+    barrios: list[str],
+    franjas: list[str],
+    presupuesto: list[str],
+) -> None:
     profiles = data_store.load_profiles()
     profile = _ensure_profile(profiles, token)
 
-    for value in categorias:
-        _bump(profile["gustos"], value, 3.0)
-    for value in barrios:
-        _bump(profile["barrios"], value, 2.0)
-    for value in franjas:
-        _bump(profile["franjas"], value, 2.0)
-    for value in presupuesto:
-        _bump(profile["presupuesto"], value, 2.0)
+    # Sustituye completamente la selección manual actual
+    profile["gustos"] = {value: 3.0 for value in categorias if str(value).strip()}
+    profile["barrios"] = {value: 2.0 for value in barrios if str(value).strip()}
+    profile["franjas"] = {value: 2.0 for value in franjas if str(value).strip()}
+    profile["presupuesto"] = {value: 2.0 for value in presupuesto if str(value).strip()}
 
     profile["updated_at"] = data_store.now_iso()
     data_store.save_profiles(profiles)
@@ -125,7 +128,7 @@ def apply_preferences(token: str, categorias: list[str], barrios: list[str], fra
     data_store.append_interaction({
         "ts": data_store.now_iso(),
         "token": token,
-        "action": "preferences_update",
+        "action": "preferences_set",
         "entity_type": "profile",
         "entity_id": token,
         "categoria": ",".join(categorias),
@@ -176,6 +179,12 @@ def score_item(profile: dict, item: dict, popularity_counter: Counter | None = N
                 score += 3
             elif days_delta < 0:
                 score -= 2
+
+    # Bonus ligero por afinidad adolescente si existe
+    try:
+        score += min(float(item.get("teen_score", 0) or 0) * 0.15, 2.0)
+    except Exception:
+        pass
 
     return round(score, 3)
 
@@ -242,7 +251,7 @@ def plan_hoy(token: str, events: list[dict], places: list[dict]) -> dict:
             and x.get("categoria") in {
                 "actividad", "bolera", "escape-room", "arcade", "cine",
                 "museo", "compras", "ropa", "sneakers", "manga", "regalos",
-                "quedada", "paseo", "nightlife"
+                "quedada", "paseo"
             }
         ),
         None,
