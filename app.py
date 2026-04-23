@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import re
 import uuid
-from datetime import datetime, date
+from datetime import date, datetime
 from functools import wraps
 from zoneinfo import ZoneInfo
 
@@ -614,8 +614,8 @@ def admin_lugar_delete(place_id: str):
 def admin_auditoria():
     return render_template(
         "admin_auditoria.html",
-        audit_rows=list(reversed(data_store.load_audit())),
-        interactions=list(reversed(data_store.load_interactions()))[:50],
+        audit_rows=list(reversed(data_store.load_audit()))[:200],
+        interactions=list(reversed(data_store.load_interactions()))[:100],
         stats=recommender.stats_summary(),
     )
 
@@ -626,7 +626,7 @@ def export_auditoria():
     payload = [
         {
             "ts": r.get("ts", ""),
-            "": r.get("tsaction": r.get("action", ""),
+            "action": r.get("action", ""),
             "entity_type": r.get("entity_type", ""),
             "entity_id": r.get("entity_id", ""),
             "meta": str(r.get("meta", {})),
