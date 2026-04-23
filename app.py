@@ -193,6 +193,47 @@ def upcoming_event_rows():
     return salida
 
 
+def _sorted_unique(values):
+    return sorted({str(v).strip() for v in values if str(v).strip()}, key=lambda x: x.lower())
+
+
+def _append_if_missing(options: list[str], value: str | None) -> list[str]:
+    value = (value or "").strip()
+    if value and value not in options:
+        return sorted(options + [value], key=lambda x: x.lower())
+    return options
+
+
+def current_choice_options(event_item: dict | None = None, place_item: dict | None = None):
+    events = data_store.load_events()
+    places = data_store.load_places()
+    all_items = events + places
+
+    categorias = _sorted_unique([x.get("categoria", "") for x in all_items])
+    barrios = _sorted_unique([x.get("barrio", "") for x in all_items])
+    franjas = _sorted_unique([x.get("franja", "") for x in all_items])
+    presupuesto = _sorted_unique([x.get("precio_tipo", "") for x in all_items])
+
+    if event_item:
+        categorias = _append_if_missing(categorias, event_item.get("categoria"))
+        barrios = _append_if_missing(barrios, event_item.get("barrio"))
+        franjas = _append_if_missing(franjas, event_item.get("franja"))
+        presupuesto = _append_if_missing(presupuesto, event_item.get("precio_tipo"))
+
+    if place_item:
+        categorias = _append_if_missing(categorias, place_item.get("categoria"))
+        barrios = _append_if_missing(barrios, place_item.get("barrio"))
+        franjas = _append_if_missing(franjas, place_item.get("franja"))
+        presupuesto = _append_if_missing(presupuesto, place_item.get("precio_tipo"))
+
+    return {
+        "categorias": categorias,
+        "barrios": barrios,
+        "franjas": franjas,
+        "presupuesto": presupuesto,
+    }
+
+
 def form_list(name: str):
     values = request.form.get(name, "")
     return [x.strip() for x in values.split(",") if x.strip()]
@@ -338,20 +379,27 @@ def accion(entity_type: str, entity_id: str, action: str):
 @app.route("/preferencias", methods=["GET", "POST"])
 def preferencias():
     token = current_token()
+    options = current_choice_options()
+
     if request.method == "POST":
+        categorias = request.form.getlist("categorias")
+        barrios = request.form.getlist("barrios")
+        franjas = request.form.getlist("franjas")
+        presupuesto = request.form.getlist("presupuesto")
+
         recommender.apply_preferences(
             token,
-            form_list("categorias"),
-            form_list("barrios"),
-            form_list("franjas"),
-            form_list("presupuesto"),
+            categorias,
+            barrios,
+            franjas,
+            presupuesto,
         )
         data_store.append_audit("preferencias_update", "profile", token, {"source": "manual_form"})
         flash("Preferencias guardadas.")
         return redirect(url_for("recomendado"))
 
     profile = recommender.get_profile(token)
-    return render_with_token("preferencias.html", profile=profile)
+    return render_with_token("preferencias.html", profile=profile, options=options)
 
 
 @app.route("/recomendado")
@@ -423,6 +471,7 @@ def admin_actualizar_ahora():
 @admin_required
 def admin_evento_form(event_id: str | None = None):
     item = data_store.get_event(event_id) if event_id else None
+    options = current_choice_options(event_item=item)
 
     if request.method == "POST":
         payload = {
@@ -455,7 +504,7 @@ def admin_evento_form(event_id: str | None = None):
         flash("Evento guardado.")
         return redirect(url_for("admin_contenidos"))
 
-    return render_template("admin_form_evento.html", item=item)
+    return render_template("admin_form_evento.html", item=item, options=options)
 
 
 @app.route("/admin/lugares/nuevo", methods=["GET", "POST"])
@@ -463,6 +512,7 @@ def admin_evento_form(event_id: str | None = None):
 @admin_required
 def admin_lugar_form(place_id: str | None = None):
     item = data_store.get_place(place_id) if place_id else None
+    options = current_choice_options(place_item=item)
 
     if request.method == "POST":
         payload = {
@@ -493,7 +543,7 @@ def admin_lugar_form(place_id: str | None = None):
         flash("Lugar guardado.")
         return redirect(url_for("admin_contenidos"))
 
-    return render_template("admin_form_lugar.html", item=item)
+    return render_template("admin_form_lugar.html", item=item, options=options)
 
 
 @app.route("/admin/eventos/eliminar/<event_id>", methods=["POST"])
