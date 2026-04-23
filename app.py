@@ -492,7 +492,7 @@ def preferencias():
         franjas = request.form.getlist("franjas")
         presupuesto = request.form.getlist("presupuesto")
 
-        recommender.apply_preferences(
+        recommender.set_manual_preferences(
             token,
             categorias,
             barrios,
