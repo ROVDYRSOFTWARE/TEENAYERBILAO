@@ -135,6 +135,67 @@ def place_rows():
         for row in data_store.load_places()
     ]
 
+def _place_sort_score(row: dict):
+    try:
+        teen_score = int(row.get("teen_score", 0) or 0)
+    except Exception:
+        teen_score = 0
+    return (-teen_score, (row.get("nombre") or "").lower())
+
+
+def build_place_sections(rows: list[dict]) -> list[dict]:
+    buckets = [
+        {
+            "key": "food",
+            "title": "Comer y merendar",
+            "subtitle": "Bubble tea, cafeterías, heladerías, pizza, burgers y planes para picar algo.",
+            "cats": {"bubble-tea", "cafeteria", "heladeria", "hamburgueseria", "pizza", "merendar", "restaurante"},
+            "items": [],
+        },
+        {
+            "key": "activity",
+            "title": "Actividades",
+            "subtitle": "Bolera, cine, escape room, arcade, jump park, museos y planes para moverse o divertirse.",
+            "cats": {"bolera", "escape-room", "arcade", "jump-park", "cine", "museo", "actividad", "deporte"},
+            "items": [],
+        },
+        {
+            "key": "shopping",
+            "title": "Compras",
+            "subtitle": "Tiendas de ropa, sneakers, manga, regalos, belleza y zonas para mirar cosas en grupo.",
+            "cats": {"ropa", "sneakers", "manga", "regalos", "belleza", "compras"},
+            "items": [],
+        },
+        {
+            "key": "meetup",
+            "title": "Quedada y relax",
+            "subtitle": "Sitios para quedar, pasear, charlar o montar un plan tranquilo.",
+            "cats": {"quedada", "paseo", "parque", "visit", "visita"},
+            "items": [],
+        },
+        {
+            "key": "other",
+            "title": "Otros planes",
+            "subtitle": "Opciones que no encajan del todo en los bloques anteriores pero pueden servir.",
+            "cats": set(),
+            "items": [],
+        },
+    ]
+
+    for item in rows:
+        cat = (item.get("categoria") or "").strip().lower()
+        assigned = False
+
+        for bucket in buckets[:-1]:
+            if cat in bucket["cats"]:
+                bucket["items"].append(item)
+                assigned = True
+                break
+
+        if not assigned:
+            buckets[-1]["items"].append(item)
+
+    return [bucket for bucket in buckets if bucket["items"]]
 
 def _today_madrid() -> date:
     return datetime.now(ZoneInfo("Europe/Madrid")).date()
@@ -367,8 +428,9 @@ def eventos():
 
 @app.route("/lugares")
 def lugares():
-    rows = sorted(place_rows(), key=lambda x: (x.get("barrio", ""), x.get("nombre", "")))
-    return render_with_token("lugares.html", title="Lugares", items=rows)
+    rows = sorted(place_rows(), key=_place_sort_score)
+    sections = build_place_sections(rows)
+    return render_with_token("lugares.html", title="Lugares", items=rows, sections=sections)
 
 
 @app.route("/evento/<event_id>")
