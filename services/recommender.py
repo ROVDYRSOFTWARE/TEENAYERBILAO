@@ -44,19 +44,16 @@ def _parse_event_date(value: str) -> date | None:
     if not raw:
         return None
 
-    # YYYY-MM-DD
     try:
         return datetime.strptime(raw[:10], "%Y-%m-%d").date()
     except Exception:
         pass
 
-    # DD/MM/YYYY
     try:
         return datetime.strptime(raw[:10], "%d/%m/%Y").date()
     except Exception:
         pass
 
-    # ISO datetime
     try:
         return datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
     except Exception:
