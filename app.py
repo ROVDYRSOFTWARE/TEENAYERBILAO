@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import re
 import uuid
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
@@ -123,14 +124,70 @@ def _parse_event_date(value: str) -> date | None:
     return None
 
 
+def _parse_spanish_title_date(title: str) -> date | None:
+    if not title:
+        return None
+
+    meses = {
+        "enero": 1,
+        "febrero": 2,
+        "marzo": 3,
+        "abril": 4,
+        "mayo": 5,
+        "junio": 6,
+        "julio": 7,
+        "agosto": 8,
+        "septiembre": 9,
+        "setiembre": 9,
+        "octubre": 10,
+        "noviembre": 11,
+        "diciembre": 12,
+    }
+
+    raw = str(title).strip().lower()
+    m = re.search(r"(\d{1,2})\s+de\s+([a-záéíóú]+)", raw)
+    if not m:
+        return None
+
+    dia = int(m.group(1))
+    mes_txt = m.group(2)
+    mes = meses.get(mes_txt)
+    if not mes:
+        return None
+
+    hoy = _today_madrid()
+    year = hoy.year
+
+    try:
+        fecha = date(year, mes, dia)
+    except Exception:
+        return None
+
+    if (fecha - hoy).days > 180:
+        try:
+            fecha = date(year - 1, mes, dia)
+        except Exception:
+            return None
+
+    return fecha
+
+
+def _row_event_date(row: dict) -> date | None:
+    return _parse_event_date(row.get("fecha", "")) or _parse_spanish_title_date(row.get("titulo", ""))
+
+
+def _event_sort_key(row: dict):
+    fecha = _row_event_date(row)
+    return (fecha or date.max, row.get("titulo", ""))
+
+
 def upcoming_event_rows():
     hoy = _today_madrid()
     salida = []
 
     for row in event_rows():
-        fecha = _parse_event_date(row.get("fecha", ""))
-        # si no tiene fecha, lo dejamos visible; si la tiene, solo hoy o futuro
-        if fecha is None or fecha >= hoy:
+        fecha = _row_event_date(row)
+        if fecha and fecha >= hoy:
             salida.append(row)
 
     return salida
@@ -187,7 +244,6 @@ def session_auto_update_check():
     auto_update.maybe_start("session_start", force=False)
 
 
-# intento de actualización al arrancar
 auto_update.maybe_start("app_start", force=False)
 
 
@@ -221,7 +277,7 @@ def home():
 
 @app.route("/eventos")
 def eventos():
-    rows = sorted(upcoming_event_rows(), key=lambda x: x.get("fecha", ""))
+    rows = sorted(upcoming_event_rows(), key=_event_sort_key)
     return render_with_token("eventos.html", title="Eventos", items=rows)
 
 
