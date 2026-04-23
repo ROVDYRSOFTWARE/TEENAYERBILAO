@@ -2,9 +2,64 @@
 {% block title %}{{ title or 'Lugares' }}{% endblock %}
 
 {% block content %}
-<h1>{{ title or 'Lugares' }}</h1>
+<div class="card" style="margin-bottom:16px;">
+  <h1>{{ title or 'Lugares' }}</h1>
+  <p>Planes y sitios pensados para adolescentes de Bilbao y alrededores.</p>
+</div>
 
-{% if items %}
+{% if sections %}
+  {% for section in sections %}
+    <div class="card" style="margin-bottom:16px;">
+      <h2 style="margin-bottom:6px;">{{ section.title }}</h2>
+      <p style="opacity:.8; margin-bottom:0;">{{ section.subtitle }}</p>
+    </div>
+
+    <div class="grid" style="margin-bottom:22px;">
+      {% for item in section.items %}
+        <div class="card">
+          <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+            {% if item.categoria %}<span class="pill">{{ item.categoria }}</span>{% endif %}
+            {% if item.barrio %}<span class="pill">{{ item.barrio }}</span>{% endif %}
+            {% if item.franja %}<span class="pill">{{ item.franja }}</span>{% endif %}
+            {% if item.teen_score and item.teen_score|int >= 9 %}
+              <span class="pill">top adolescente</span>
+            {% endif %}
+          </div>
+
+          <h3 style="margin-bottom:8px;">{{ item.nombre or 'Lugar' }}</h3>
+
+          {% if item.ubicacion %}
+            <p><strong>Lugar:</strong> {{ item.ubicacion }}</p>
+          {% endif %}
+
+          {% if item.direccion %}
+            <p><strong>Dirección:</strong> {{ item.direccion }}</p>
+          {% endif %}
+
+          {% if item.horario %}
+            <p><strong>Horario:</strong> {{ item.horario }}</p>
+          {% endif %}
+
+          {% if item.descripcion %}
+            <p>{{ item.descripcion[:180] }}{% if item.descripcion|length > 180 %}...{% endif %}</p>
+          {% endif %}
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+            <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver detalle</a>
+
+            {% if item.url %}
+              <a class="btn secondary" href="{{ item.url }}" target="_blank" rel="noopener">Web</a>
+            {% endif %}
+
+            {% if item._maps_url %}
+              <a class="btn secondary" href="{{ item._maps_url }}" target="_blank" rel="noopener">Mapa</a>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+{% elif items %}
   <div class="grid">
     {% for item in items %}
       <div class="card">
@@ -29,7 +84,7 @@
         {% endif %}
 
         {% if item.descripcion %}
-          <p>{{ item.descripcion }}</p>
+          <p>{{ item.descripcion[:180] }}{% if item.descripcion|length > 180 %}...{% endif %}</p>
         {% endif %}
 
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
