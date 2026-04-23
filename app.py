@@ -650,6 +650,7 @@ def export_estadisticas():
         {"metric": "profiles_total", "value": stats["profiles_total"]},
         {"metric": "interactions_total", "value": stats["interactions_total"]},
     ]
+
     for dkey in ("by_category", "by_barrio", "by_action"):
         for key, value in stats[dkey].items():
             rows.append({"metric": f"{dkey}:{key}", "value": value})
