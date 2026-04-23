@@ -1,24 +1,50 @@
 {% extends 'base.html' %}
 {% block title %}Preferencias{% endblock %}
+
 {% block content %}
-<div class="card">
-  <h1>Preferencias</h1>
-  <p>Escribe valores separados por comas. Ejemplo: <em>musica, gaming, comida</em></p>
-  <form method="post">
-    <label>Categorías</label><input name="categorias" placeholder="musica, gaming, comida">
-    <label>Barrios</label><input name="barrios" placeholder="Deusto, Indautxu, Casco Viejo">
-    <label>Franjas</label><input name="franjas" placeholder="tarde, noche">
-    <label>Presupuesto</label><input name="presupuesto" placeholder="gratis, bajo, medio">
-    <button class="btn" type="submit">Guardar preferencias</button>
-  </form>
+<h1>Preferencias</h1>
+
+<div class="card" style="margin-bottom:16px;">
+  <p>Selecciona una o varias opciones en cada bloque. Usa Ctrl (o Cmd en Mac) para elegir varias a la vez.</p>
 </div>
+
+<form method="post" class="card">
+  <label for="categorias"><strong>Categorías</strong></label>
+  <select id="categorias" name="categorias" multiple size="6" style="width:100%; margin:8px 0 16px 0;">
+    {% for value in options.categorias %}
+      <option value="{{ value }}" {% if profile.gustos.get(value) %}selected{% endif %}>{{ value }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="barrios"><strong>Barrios / zonas</strong></label>
+  <select id="barrios" name="barrios" multiple size="8" style="width:100%; margin:8px 0 16px 0;">
+    {% for value in options.barrios %}
+      <option value="{{ value }}" {% if profile.barrios.get(value) %}selected{% endif %}>{{ value }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="franjas"><strong>Franja horaria</strong></label>
+  <select id="franjas" name="franjas" multiple size="4" style="width:100%; margin:8px 0 16px 0;">
+    {% for value in options.franjas %}
+      <option value="{{ value }}" {% if profile.franjas.get(value) %}selected{% endif %}>{{ value }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="presupuesto"><strong>Precio</strong></label>
+  <select id="presupuesto" name="presupuesto" multiple size="6" style="width:100%; margin:8px 0 16px 0;">
+    {% for value in options.presupuesto %}
+      <option value="{{ value }}" {% if profile.presupuesto.get(value) %}selected{% endif %}>{{ value }}</option>
+    {% endfor %}
+  </select>
+
+  <button type="submit" class="btn">Guardar preferencias</button>
+</form>
+
 <div class="card" style="margin-top:16px;">
   <h2>Perfil actual</h2>
-  <p><strong>Gustos:</strong> {{ profile.gustos }}</p>
-  <p><strong>Barrios:</strong> {{ profile.barrios }}</p>
-  <p><strong>Franjas:</strong> {{ profile.franjas }}</p>
-  <p><strong>Presupuesto:</strong> {{ profile.presupuesto }}</p>
-  <p><strong>Tags:</strong> {{ profile.tags }}</p>
-  <p><strong>Acciones:</strong> {{ profile.acciones }}</p>
+  <p><strong>Categorías:</strong> {{ profile.gustos.keys()|list|join(', ') if profile.gustos else '—' }}</p>
+  <p><strong>Barrios:</strong> {{ profile.barrios.keys()|list|join(', ') if profile.barrios else '—' }}</p>
+  <p><strong>Franjas:</strong> {{ profile.franjas.keys()|list|join(', ') if profile.franjas else '—' }}</p>
+  <p><strong>Precio:</strong> {{ profile.presupuesto.keys()|list|join(', ') if profile.presupuesto else '—' }}</p>
 </div>
 {% endblock %}
