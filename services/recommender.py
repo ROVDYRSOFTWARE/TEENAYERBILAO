@@ -1,6 +1,7 @@
 from __future__ import annotations
 from collections import Counter
 from datetime import datetime, date
+import re
 from typing import Iterable
 from zoneinfo import ZoneInfo
 from services import data_store
@@ -62,12 +63,64 @@ def _parse_event_date(value: str) -> date | None:
     return None
 
 
+def _parse_spanish_title_date(title: str) -> date | None:
+    if not title:
+        return None
+
+    meses = {
+        "enero": 1,
+        "febrero": 2,
+        "marzo": 3,
+        "abril": 4,
+        "mayo": 5,
+        "junio": 6,
+        "julio": 7,
+        "agosto": 8,
+        "septiembre": 9,
+        "setiembre": 9,
+        "octubre": 10,
+        "noviembre": 11,
+        "diciembre": 12,
+    }
+
+    raw = str(title).strip().lower()
+    m = re.search(r"(\d{1,2})\s+de\s+([a-záéíóú]+)", raw)
+    if not m:
+        return None
+
+    dia = int(m.group(1))
+    mes_txt = m.group(2)
+    mes = meses.get(mes_txt)
+    if not mes:
+        return None
+
+    hoy = _today_madrid()
+    year = hoy.year
+
+    try:
+        fecha = date(year, mes, dia)
+    except Exception:
+        return None
+
+    if (fecha - hoy).days > 180:
+        try:
+            fecha = date(year - 1, mes, dia)
+        except Exception:
+            return None
+
+    return fecha
+
+
+def _item_event_date(item: dict) -> date | None:
+    return _parse_event_date(item.get("fecha", "")) or _parse_spanish_title_date(item.get("titulo", ""))
+
+
 def _eventos_de_hoy(events: list[dict]) -> list[dict]:
     hoy = _today_madrid()
     salida = []
 
     for ev in events:
-        fecha = _parse_event_date(ev.get("fecha", ""))
+        fecha = _item_event_date(ev)
         if fecha == hoy:
             salida.append(ev)
 
@@ -166,15 +219,25 @@ def score_item(profile: dict, item: dict, popularity_counter: Counter | None = N
         score += min(popularity_counter.get(key, 0), 20) * 0.2
 
     if item.get("_entity_type") == "evento":
-        fecha = _parse_event_date(item.get("fecha", ""))
+        fecha = _item_event_date(item)
         if fecha:
             days_delta = (fecha - _today_madrid()).days
             if 0 <= days_delta <= 7:
                 score += 3
             elif days_delta < 0:
                 score -= 2
+        else:
+            score -= 5
 
     return round(score, 3)
+
+
+def _rank_sort_key(item: dict):
+    score = item.get("score", 0)
+    if item.get("_entity_type") == "evento":
+        fecha = _item_event_date(item) or date.max
+        return (-score, fecha, item.get("titulo", ""))
+    return (-score, date.max, item.get("nombre", ""))
 
 
 def rank_items(token: str, events: list[dict], places: list[dict]) -> list[dict]:
@@ -187,7 +250,7 @@ def rank_items(token: str, events: list[dict], places: list[dict]) -> list[dict]
         row["score"] = score_item(profile, row, pop)
         ranked.append(row)
 
-    ranked.sort(key=lambda x: (x.get("score", 0), x.get("fecha", "")), reverse=True)
+    ranked.sort(key=_rank_sort_key)
     return ranked
 
 
