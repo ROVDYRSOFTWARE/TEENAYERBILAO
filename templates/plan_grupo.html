@@ -97,8 +97,25 @@
 
 {% if plan %}
   <div class="card" style="margin-bottom:16px;">
-    <h2>{{ plan.summary.title }}</h2>
-    <p>{{ plan.summary.subtitle }}</p>
+    <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center;">
+      <div>
+        <h2>{{ plan.summary.title }}</h2>
+        <p>{{ plan.summary.subtitle }}</p>
+      </div>
+
+      <form method="post" action="{{ url_for('compartir_plan_grupo') }}">
+        <input type="hidden" name="group_size" value="{{ form_data.group_size }}">
+        <input type="hidden" name="age_band" value="{{ form_data.age_band }}">
+        <input type="hidden" name="budget" value="{{ form_data.budget }}">
+        <input type="hidden" name="energy" value="{{ form_data.energy }}">
+        <input type="hidden" name="objective" value="{{ form_data.objective }}">
+        <input type="hidden" name="weather" value="{{ form_data.weather }}">
+        <input type="hidden" name="duration" value="{{ form_data.duration }}">
+        <input type="hidden" name="zone" value="{{ form_data.zone }}">
+        <button type="submit" class="btn">Compartir con QR</button>
+      </form>
+    </div>
+
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
       <span class="pill">{{ plan.summary.group_size }} personas</span>
       <span class="pill">{{ plan.summary.age_band }}</span>
