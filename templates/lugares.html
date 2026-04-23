@@ -7,11 +7,16 @@
   <p>Planes y sitios pensados para adolescentes de Bilbao y alrededores.</p>
 </div>
 
-{% if sections %}
-  {% for section in sections %}
+{% set sections_safe = sections if sections is defined and sections else [] %}
+{% set items_safe = items if items is defined and items else [] %}
+
+{% if sections_safe %}
+  {% for section in sections_safe %}
     <div class="card" style="margin-bottom:16px;">
-      <h2 style="margin-bottom:6px;">{{ section.title }}</h2>
-      <p style="opacity:.8; margin-bottom:0;">{{ section.subtitle }}</p>
+      <h2 style="margin-bottom:6px;">{{ section.title or 'Bloque' }}</h2>
+      {% if section.subtitle %}
+        <p style="opacity:.8; margin-bottom:0;">{{ section.subtitle }}</p>
+      {% endif %}
     </div>
 
     <div class="grid" style="margin-bottom:22px;">
@@ -21,8 +26,10 @@
             {% if item.categoria %}<span class="pill">{{ item.categoria }}</span>{% endif %}
             {% if item.barrio %}<span class="pill">{{ item.barrio }}</span>{% endif %}
             {% if item.franja %}<span class="pill">{{ item.franja }}</span>{% endif %}
-            {% if item.teen_score and item.teen_score|int >= 9 %}
-              <span class="pill">top adolescente</span>
+            {% if item.teen_score is defined and item.teen_score %}
+              {% if item.teen_score|int >= 9 %}
+                <span class="pill">top adolescente</span>
+              {% endif %}
             {% endif %}
           </div>
 
@@ -45,7 +52,9 @@
           {% endif %}
 
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-            <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver detalle</a>
+            {% if item.id %}
+              <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver detalle</a>
+            {% endif %}
 
             {% if item.url %}
               <a class="btn secondary" href="{{ item.url }}" target="_blank" rel="noopener">Web</a>
@@ -53,15 +62,18 @@
 
             {% if item._maps_url %}
               <a class="btn secondary" href="{{ item._maps_url }}" target="_blank" rel="noopener">Mapa</a>
+            {% elif item.maps_url %}
+              <a class="btn secondary" href="{{ item.maps_url }}" target="_blank" rel="noopener">Mapa</a>
             {% endif %}
           </div>
         </div>
       {% endfor %}
     </div>
   {% endfor %}
-{% elif items %}
+
+{% elif items_safe %}
   <div class="grid">
-    {% for item in items %}
+    {% for item in items_safe %}
       <div class="card">
         <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
           {% if item.categoria %}<span class="pill">{{ item.categoria }}</span>{% endif %}
@@ -88,17 +100,24 @@
         {% endif %}
 
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-          <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver detalle</a>
+          {% if item.id %}
+            <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver detalle</a>
+          {% endif %}
+
           {% if item.url %}
             <a class="btn secondary" href="{{ item.url }}" target="_blank" rel="noopener">Web</a>
           {% endif %}
+
           {% if item._maps_url %}
             <a class="btn secondary" href="{{ item._maps_url }}" target="_blank" rel="noopener">Mapa</a>
+          {% elif item.maps_url %}
+            <a class="btn secondary" href="{{ item.maps_url }}" target="_blank" rel="noopener">Mapa</a>
           {% endif %}
         </div>
       </div>
     {% endfor %}
   </div>
+
 {% else %}
   <div class="card">
     <h3>No hay lugares disponibles</h3>
