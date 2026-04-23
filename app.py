@@ -438,13 +438,6 @@ def eventos():
     return render_with_token("eventos.html", title="Eventos", items=rows)
 
 
-@app.route("/lugares")
-def lugares():
-    rows = sorted(place_rows(), key=_place_sort_score)
-    sections = build_place_sections(rows)
-    return render_with_token("lugares.html", title="Lugares", items=rows, sections=sections)
-
-
 @app.route("/evento/<event_id>")
 def evento_detalle(event_id: str):
     item = data_store.get_event(event_id)
