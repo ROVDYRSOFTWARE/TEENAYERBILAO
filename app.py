@@ -1,21 +1,57 @@
+
 from __future__ import annotations
+
 import os
 import re
 import uuid
 from datetime import datetime, date
-from zoneinfo import ZoneInfo
 from functools import wraps
-from flask import Flask, Response, abort, flash, make_response, redirect, render_template, request, session, url_for
-from services import data_store, recommender, geocode, auto_update
+from zoneinfo import ZoneInfo
+
+from flask import (
+    Flask,
+    Response,
+    abort,
+    flash,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+
+from services import auto_update, data_store, geocode, recommender
 
 app = Flask(__name__)
 app.secret_key = "teenayer-bilbao-local"
 app.config["ADMIN_PASSWORD"] = os.getenv("ADMIN_PASSWORD", "admin1234")
+
 data_store.init_files()
 
 
 def current_token() -> str:
     return request.cookies.get("tb_token") or f"session_{uuid.uuid4().hex[:12]}"
+
+
+def _top_bucket_items(bucket: dict, limit: int = 3) -> list[str]:
+    if not bucket:
+        return []
+
+    ordered = sorted(
+        [(str(k).strip(), float(v)) for k, v in bucket.items() if str(k).strip()],
+        key=lambda x: (-x[1], x[0].lower()),
+    )
+    return [name for name, _score in ordered[:limit]]
+
+
+def build_profile_preview(profile: dict) -> dict:
+    return {
+        "gustos": _top_bucket_items(profile.get("gustos", {}), 3),
+        "barrios": _top_bucket_items(profile.get("barrios", {}), 3),
+        "franjas": _top_bucket_items(profile.get("franjas", {}), 3),
+        "presupuesto": _top_bucket_items(profile.get("presupuesto", {}), 3),
+    }
 
 
 def render_with_token(template_name: str, **context):
@@ -41,6 +77,7 @@ def build_maps_url(item: dict) -> str:
     )
     if query:
         from urllib.parse import quote_plus
+
         return f"https://www.google.com/maps/search/?api=1&query={quote_plus(query)}"
 
     return ""
@@ -270,6 +307,7 @@ def admin_required(func):
         if not session.get("admin_ok"):
             return redirect(url_for("admin_login", next=request.path))
         return func(*args, **kwargs)
+
     return wrapper
 
 
@@ -407,7 +445,13 @@ def recomendado():
     token = current_token()
     ranked = recommender.rank_items(token, upcoming_event_rows(), place_rows())[:20]
     profile = recommender.get_profile(token)
-    return render_with_token("recomendado.html", items=ranked, profile=profile)
+    profile_preview = build_profile_preview(profile)
+    return render_with_token(
+        "recomendado.html",
+        items=ranked,
+        profile=profile,
+        profile_preview=profile_preview,
+    )
 
 
 @app.route("/plan-hoy")
@@ -484,6 +528,7 @@ def admin_evento_form(event_id: str | None = None):
             "precio_tipo": request.form.get("precio_tipo", "").strip(),
             "ubicacion": request.form.get("ubicacion", "").strip(),
             "direccion": request.form.get("direccion", "").strip(),
+            "punto_quedada": request.form.get("punto_quedada", "").strip(),
             "latitud": request.form.get("latitud", "").strip(),
             "longitud": request.form.get("longitud", "").strip(),
             "maps_url": request.form.get("maps_url", "").strip(),
@@ -524,6 +569,7 @@ def admin_lugar_form(place_id: str | None = None):
             "precio_tipo": request.form.get("precio_tipo", "").strip(),
             "ubicacion": request.form.get("ubicacion", "").strip(),
             "direccion": request.form.get("direccion", "").strip(),
+            "horario": request.form.get("horario", "").strip(),
             "latitud": request.form.get("latitud", "").strip(),
             "longitud": request.form.get("longitud", "").strip(),
             "maps_url": request.form.get("maps_url", "").strip(),
@@ -581,7 +627,7 @@ def export_auditoria():
     payload = [
         {
             "ts": r.get("ts", ""),
-            "action": r.get("action", ""),
+            "": r.get("tsaction": r.get("action", ""),
             "entity_type": r.get("entity_type", ""),
             "entity_id": r.get("entity_id", ""),
             "meta": str(r.get("meta", {})),
