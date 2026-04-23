@@ -1,11 +1,11 @@
 from __future__ import annotations
 import os
 import uuid
+from datetime import datetime, date
+from zoneinfo import ZoneInfo
 from functools import wraps
 from flask import Flask, Response, abort, flash, make_response, redirect, render_template, request, session, url_for
 from services import data_store, recommender, geocode, auto_update
-from datetime import datetime, date
-from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 app.secret_key = "teenayer-bilbao-local"
@@ -92,6 +92,7 @@ def place_rows():
         for row in data_store.load_places()
     ]
 
+
 def _today_madrid() -> date:
     return datetime.now(ZoneInfo("Europe/Madrid")).date()
 
@@ -128,10 +129,12 @@ def upcoming_event_rows():
 
     for row in event_rows():
         fecha = _parse_event_date(row.get("fecha", ""))
+        # si no tiene fecha, lo dejamos visible; si la tiene, solo hoy o futuro
         if fecha is None or fecha >= hoy:
             salida.append(row)
 
     return salida
+
 
 def form_list(name: str):
     values = request.form.get(name, "")
@@ -301,6 +304,7 @@ def recomendado():
     ranked = recommender.rank_items(token, upcoming_event_rows(), place_rows())[:20]
     profile = recommender.get_profile(token)
     return render_with_token("recomendado.html", items=ranked, profile=profile)
+
 
 @app.route("/plan-hoy")
 def plan_hoy():
