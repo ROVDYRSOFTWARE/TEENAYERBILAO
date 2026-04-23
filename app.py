@@ -197,6 +197,18 @@ def build_place_sections(rows: list[dict]) -> list[dict]:
 
     return [bucket for bucket in buckets if bucket["items"]]
 
+
+@app.route("/lugares")
+def lugares():
+    rows = sorted(place_rows(), key=_place_sort_score)
+    sections = build_place_sections(rows)
+    return render_with_token(
+        "lugares.html",
+        title="Lugares",
+        items=rows,
+        sections=sections,
+    )
+
 def _today_madrid() -> date:
     return datetime.now(ZoneInfo("Europe/Madrid")).date()
 
