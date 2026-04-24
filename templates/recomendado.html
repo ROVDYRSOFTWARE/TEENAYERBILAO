@@ -1,28 +1,204 @@
 {% extends 'base.html' %}
-{% block title %}Recomendado{% endblock %}
+{% block title %}Recomendado para ti{% endblock %}
+
 {% block content %}
-<div class="card" style="margin-bottom:16px;">
+<div class="card hero-card">
+  <div class="hero-kicker">🔥 Feed personalizado</div>
   <h1>Recomendado para ti</h1>
-  <p>Se ordena por afinidad de categoría, barrio, franja, precio, tags y popularidad.</p>
-  <p><strong>Perfil:</strong> gustos={{ profile.gustos }} | barrios={{ profile.barrios }} | franjas={{ profile.franjas }}</p>
-</div>
-<div class="grid">
-{% for item in items %}
-  <div class="card">
-    <div class="pill">{{ item._entity_type }}</div>
-    <div class="pill">{{ item.categoria }}</div>
-    <div class="pill">{{ item.barrio }}</div>
-    <div class="pill">score {{ item.score }}</div>
-    <h3>{{ item.titulo or item.nombre }}</h3>
-    {% if item.fecha %}<p><strong>{{ item.fecha }}</strong></p>{% endif %}
-    <p>{{ item.descripcion[:160] }}{% if item.descripcion|length > 160 %}...{% endif %}</p>
-      {% if item.ubicacion or item.direccion %}<p class="muted"><strong>Ubicación:</strong> {{ item.ubicacion or item.direccion }}</p>{% endif %}
-    {% if item._entity_type == 'evento' %}
-      <a class="btn" href="{{ url_for('evento_detalle', event_id=item.id) }}">Abrir</a>
-    {% else %}
-      <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Abrir</a>
-    {% endif %}
+  <p>
+    Una selección afinada según tus gustos, zonas favoritas y lo que vas marcando
+    con tus clics.
+  </p>
+
+  <div class="hero-actions">
+    <a class="btn" href="{{ url_for('preferencias') }}">Ajustar gustos</a>
+    <a class="btn secondary" href="{{ url_for('plan_hoy') }}">Ver plan de hoy</a>
+    <a class="btn ghost" href="{{ url_for('plan_grupo') }}">Plan en grupo</a>
   </div>
-{% endfor %}
 </div>
+
+<div class="grid">
+  <div class="card">
+    <div class="section-title">
+      <div>
+        <h2>Tu perfil ahora</h2>
+        <p>Así está entendiendo la app lo que más te encaja.</p>
+      </div>
+    </div>
+
+    <div class="timeline" style="margin-top:14px;">
+      <div class="timeline-step">
+        <strong>🎯 Gustos top</strong>
+        <div class="tag-row" style="margin-top:10px;">
+          {% if profile_preview and profile_preview.gustos %}
+            {% for item in profile_preview.gustos %}
+              <span class="pill">{{ item }}</span>
+            {% endfor %}
+          {% else %}
+            <span class="pill">Aún sin datos</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="timeline-step">
+        <strong>📍 Zonas top</strong>
+        <div class="tag-row" style="margin-top:10px;">
+          {% if profile_preview and profile_preview.barrios %}
+            {% for item in profile_preview.barrios %}
+              <span class="pill">{{ item }}</span>
+            {% endfor %}
+          {% else %}
+            <span class="pill">Aún sin datos</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="timeline-step">
+        <strong>🕒 Momentos favoritos</strong>
+        <div class="tag-row" style="margin-top:10px;">
+          {% if profile_preview and profile_preview.franjas %}
+            {% for item in profile_preview.franjas %}
+              <span class="pill">{{ item }}</span>
+            {% endfor %}
+          {% else %}
+            <span class="pill">Aún sin datos</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="timeline-step">
+        <strong>💸 Presupuesto</strong>
+        <div class="tag-row" style="margin-top:10px;">
+          {% if profile_preview and profile_preview.presupuesto %}
+            {% for item in profile_preview.presupuesto %}
+              <span class="pill">{{ item }}</span>
+            {% endfor %}
+          {% else %}
+            <span class="pill">Sin preferencia marcada</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      <div>
+        <h2>Mejora tu feed</h2>
+        <p>Cuanto más interactúes, mejor encajarán las propuestas.</p>
+      </div>
+    </div>
+
+    <div class="list-clean" style="margin-top:14px;">
+      <div class="stat-chip">❤️ Marca lo que sí te gusta</div>
+      <div class="stat-chip">👎 Marca lo que no te encaja</div>
+      <div class="stat-chip">⚙️ Ajusta gustos y zonas</div>
+      <div class="stat-chip">👥 Prueba también el plan en grupo</div>
+    </div>
+
+    <div class="hero-actions" style="margin-top:18px;">
+      <a class="btn secondary" href="{{ url_for('preferencias') }}">Editar preferencias</a>
+      <a class="btn ghost" href="{{ url_for('lugares') }}">Explorar lugares</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      <div>
+        <h2>Ideas rápidas</h2>
+        <p>Accesos directos según el mood.</p>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:10px;">
+      <div class="stat-chip" style="grid-column:span 6;">🍔 Merienda</div>
+      <div class="stat-chip" style="grid-column:span 6;">🎳 Actividad</div>
+      <div class="stat-chip" style="grid-column:span 6;">🛍️ Compras</div>
+      <div class="stat-chip" style="grid-column:span 6;">🎬 Cine</div>
+      <div class="stat-chip" style="grid-column:span 6;">🌧️ Lluvia</div>
+      <div class="stat-chip" style="grid-column:span 6;">👥 Grupo</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title" style="margin-top:8px;">
+  <div>
+    <h2>Tu feed</h2>
+    <p>Desliza mentalmente, guarda lo bueno y ve afinando.</p>
+  </div>
+</div>
+
+{% if items %}
+  <div class="grid">
+    {% for item in items %}
+      <div class="card feed-card">
+        <div class="meta">
+          {% if item._entity_type == 'evento' %}
+            <span class="pill">🎫 Evento</span>
+          {% else %}
+            <span class="pill">📍 Lugar</span>
+          {% endif %}
+
+          {% if item.categoria %}
+            <span class="pill">{{ item.categoria }}</span>
+          {% endif %}
+          {% if item.barrio %}
+            <span class="pill">{{ item.barrio }}</span>
+          {% endif %}
+          {% if item.franja %}
+            <span class="pill">{{ item.franja }}</span>
+          {% endif %}
+          {% if item.precio_tipo %}
+            <span class="pill">{{ item.precio_tipo }}</span>
+          {% endif %}
+          {% if item.score is defined %}
+            <span class="pill">match {{ item.score }}</span>
+          {% endif %}
+        </div>
+
+        <h3 style="font-size:1.45rem; margin-bottom:8px;">
+          {{ item.titulo or item.nombre or 'Recomendación' }}
+        </h3>
+
+        {% if item.fecha %}
+          <p><strong>Fecha:</strong> {{ item.fecha }}</p>
+        {% endif %}
+        {% if item.ubicacion %}
+          <p><strong>Lugar:</strong> {{ item.ubicacion }}</p>
+        {% endif %}
+        {% if item.direccion %}
+          <p><strong>Dirección:</strong> {{ item.direccion }}</p>
+        {% endif %}
+        {% if item.descripcion %}
+          <p>{{ item.descripcion[:190] }}{% if item.descripcion|length > 190 %}...{% endif %}</p>
+        {% endif %}
+
+        <div class="actions">
+          {% if item._entity_type == 'evento' %}
+            <a class="btn" href="{{ url_for('evento_detalle', event_id=item.id) }}">Ver plan</a>
+            <a class="btn secondary" href="{{ url_for('accion', entity_type='evento', entity_id=item.id, action='like') }}">❤️ Me gusta</a>
+            <a class="btn ghost" href="{{ url_for('accion', entity_type='evento', entity_id=item.id, action='dislike') }}">👎 No me interesa</a>
+          {% else %}
+            <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver sitio</a>
+            <a class="btn secondary" href="{{ url_for('accion', entity_type='lugar', entity_id=item.id, action='like') }}">❤️ Me gusta</a>
+            <a class="btn ghost" href="{{ url_for('accion', entity_type='lugar', entity_id=item.id, action='dislike') }}">👎 No me interesa</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card center">
+    <h2>Aún no hay recomendaciones</h2>
+    <p>
+      Marca gustos, entra en lugares o eventos y vuelve aquí para que el feed
+      empiece a tener más sentido para ti.
+    </p>
+
+    <div class="hero-actions" style="justify-content:center;">
+      <a class="btn" href="{{ url_for('preferencias') }}">Definir gustos</a>
+      <a class="btn secondary" href="{{ url_for('lugares') }}">Ver lugares</a>
+    </div>
+  </div>
+{% endif %}
 {% endblock %}
