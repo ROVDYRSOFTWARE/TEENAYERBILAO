@@ -86,7 +86,13 @@
 
     <div>
       <label><strong>Zona de salida</strong></label>
-      <input type="text" name="zone" value="{{ form_data.zone or '' }}" placeholder="Ej. Indautxu, Deusto, Casco Viejo" style="width:100%; margin-top:8px;">
+      <input
+        type="text"
+        name="zone"
+        value="{{ form_data.zone or '' }}"
+        placeholder="Ej. Indautxu, Deusto, Casco Viejo"
+        style="width:100%; margin-top:8px;"
+      >
     </div>
   </div>
 
@@ -131,13 +137,36 @@
       {% if plan.principal %}
         <div class="pill">{{ plan.principal.categoria }}</div>
         <h3>{{ plan.principal.titulo or plan.principal.nombre }}</h3>
-        {% if plan.principal.fecha %}<p><strong>Fecha:</strong> {{ plan.principal.fecha }}</p>{% endif %}
-        {% if plan.principal._display_place %}<p><strong>Lugar:</strong> {{ plan.principal._display_place }}</p>{% endif %}
-        {% if plan.principal._display_address %}<p><strong>Dirección exacta:</strong> {{ plan.principal._display_address }}</p>{% endif %}
-        {% if plan.principal._nearest_metro %}<p><strong>Metro cercano:</strong> {{ plan.principal._nearest_metro.name }} · {{ plan.principal._nearest_metro.walk_minutes }} min</p>{% endif %}
-        {% if plan.principal._nearest_bus %}<p><strong>Bus cercano:</strong> {{ plan.principal._nearest_bus.name }} · {{ plan.principal._nearest_bus.walk_minutes }} min</p>{% endif %}
+
+        {% if plan.principal.fecha %}
+          <p><strong>Fecha:</strong> {{ plan.principal.fecha }}</p>
+        {% endif %}
+        {% if plan.principal._display_place %}
+          <p><strong>Lugar:</strong> {{ plan.principal._display_place }}</p>
+        {% endif %}
+        {% if plan.principal._display_address %}
+          <p><strong>Dirección exacta:</strong> {{ plan.principal._display_address }}</p>
+        {% endif %}
+        {% if plan.principal.punto_quedada %}
+          <p><strong>Punto de quedada:</strong> {{ plan.principal.punto_quedada }}</p>
+        {% endif %}
+        {% if plan.principal._nearest_metro %}
+          <p><strong>Metro cercano:</strong> {{ plan.principal._nearest_metro.name }} · {{ plan.principal._nearest_metro.walk_minutes }} min</p>
+        {% endif %}
+        {% if plan.principal._nearest_bus %}
+          <p><strong>Bus cercano:</strong> {{ plan.principal._nearest_bus.name }} · {{ plan.principal._nearest_bus.walk_minutes }} min</p>
+        {% endif %}
+
         <p>{{ plan.principal.descripcion }}</p>
-        {% if plan.principal._maps_url %}<p><a class="btn secondary" href="{{ plan.principal._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          {% if plan.principal._maps_url %}
+            <a class="btn secondary" href="{{ plan.principal._maps_url }}" target="_blank">Mapa</a>
+          {% endif %}
+          {% if plan.principal.url %}
+            <a class="btn" href="{{ plan.principal.url }}" target="_blank" rel="noopener">Ver más</a>
+          {% endif %}
+        </div>
       {% else %}
         <p>No se ha encontrado principal.</p>
       {% endif %}
@@ -148,13 +177,33 @@
       {% if plan.comida %}
         <div class="pill">{{ plan.comida.categoria }}</div>
         <h3>{{ plan.comida.titulo or plan.comida.nombre }}</h3>
-        {% if plan.comida._display_place %}<p><strong>Lugar:</strong> {{ plan.comida._display_place }}</p>{% endif %}
-        {% if plan.comida._display_address %}<p><strong>Dirección exacta:</strong> {{ plan.comida._display_address }}</p>{% endif %}
-        {% if plan.comida.horario %}<p><strong>Horario:</strong> {{ plan.comida.horario }}</p>{% endif %}
-        {% if plan.comida._nearest_metro %}<p><strong>Metro cercano:</strong> {{ plan.comida._nearest_metro.name }} · {{ plan.comida._nearest_metro.walk_minutes }} min</p>{% endif %}
-        {% if plan.comida._nearest_bus %}<p><strong>Bus cercano:</strong> {{ plan.comida._nearest_bus.name }} · {{ plan.comida._nearest_bus.walk_minutes }} min</p>{% endif %}
+
+        {% if plan.comida._display_place %}
+          <p><strong>Lugar:</strong> {{ plan.comida._display_place }}</p>
+        {% endif %}
+        {% if plan.comida._display_address %}
+          <p><strong>Dirección exacta:</strong> {{ plan.comida._display_address }}</p>
+        {% endif %}
+        {% if plan.comida.horario %}
+          <p><strong>Horario:</strong> {{ plan.comida.horario }}</p>
+        {% endif %}
+        {% if plan.comida._nearest_metro %}
+          <p><strong>Metro cercano:</strong> {{ plan.comida._nearest_metro.name }} · {{ plan.comida._nearest_metro.walk_minutes }} min</p>
+        {% endif %}
+        {% if plan.comida._nearest_bus %}
+          <p><strong>Bus cercano:</strong> {{ plan.comida._nearest_bus.name }} · {{ plan.comida._nearest_bus.walk_minutes }} min</p>
+        {% endif %}
+
         <p>{{ plan.comida.descripcion }}</p>
-        {% if plan.comida._maps_url %}<p><a class="btn secondary" href="{{ plan.comida._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          {% if plan.comida._maps_url %}
+            <a class="btn secondary" href="{{ plan.comida._maps_url }}" target="_blank">Mapa</a>
+          {% endif %}
+          {% if plan.comida.url %}
+            <a class="btn" href="{{ plan.comida.url }}" target="_blank" rel="noopener">Ver más</a>
+          {% endif %}
+        </div>
       {% else %}
         <p>No se ha encontrado parada de comida.</p>
       {% endif %}
@@ -165,13 +214,33 @@
       {% if plan.extra %}
         <div class="pill">{{ plan.extra.categoria }}</div>
         <h3>{{ plan.extra.titulo or plan.extra.nombre }}</h3>
-        {% if plan.extra._display_place %}<p><strong>Lugar:</strong> {{ plan.extra._display_place }}</p>{% endif %}
-        {% if plan.extra._display_address %}<p><strong>Dirección exacta:</strong> {{ plan.extra._display_address }}</p>{% endif %}
-        {% if plan.extra.horario %}<p><strong>Horario:</strong> {{ plan.extra.horario }}</p>{% endif %}
-        {% if plan.extra._nearest_metro %}<p><strong>Metro cercano:</strong> {{ plan.extra._nearest_metro.name }} · {{ plan.extra._nearest_metro.walk_minutes }} min</p>{% endif %}
-        {% if plan.extra._nearest_bus %}<p><strong>Bus cercano:</strong> {{ plan.extra._nearest_bus.name }} · {{ plan.extra._nearest_bus.walk_minutes }} min</p>{% endif %}
+
+        {% if plan.extra._display_place %}
+          <p><strong>Lugar:</strong> {{ plan.extra._display_place }}</p>
+        {% endif %}
+        {% if plan.extra._display_address %}
+          <p><strong>Dirección exacta:</strong> {{ plan.extra._display_address }}</p>
+        {% endif %}
+        {% if plan.extra.horario %}
+          <p><strong>Horario:</strong> {{ plan.extra.horario }}</p>
+        {% endif %}
+        {% if plan.extra._nearest_metro %}
+          <p><strong>Metro cercano:</strong> {{ plan.extra._nearest_metro.name }} · {{ plan.extra._nearest_metro.walk_minutes }} min</p>
+        {% endif %}
+        {% if plan.extra._nearest_bus %}
+          <p><strong>Bus cercano:</strong> {{ plan.extra._nearest_bus.name }} · {{ plan.extra._nearest_bus.walk_minutes }} min</p>
+        {% endif %}
+
         <p>{{ plan.extra.descripcion }}</p>
-        {% if plan.extra._maps_url %}<p><a class="btn secondary" href="{{ plan.extra._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          {% if plan.extra._maps_url %}
+            <a class="btn secondary" href="{{ plan.extra._maps_url }}" target="_blank">Mapa</a>
+          {% endif %}
+          {% if plan.extra.url %}
+            <a class="btn" href="{{ plan.extra.url }}" target="_blank" rel="noopener">Ver más</a>
+          {% endif %}
+        </div>
       {% else %}
         <p>No se ha encontrado extra.</p>
       {% endif %}
@@ -189,6 +258,35 @@
           <li>{{ step }}</li>
         {% endfor %}
       </ol>
+    </div>
+  {% endif %}
+
+  {% if plan.host_guide %}
+    <div class="card" style="margin-top:16px;">
+      <h2>{{ plan.host_guide.title }}</h2>
+      <p>{{ plan.host_guide.intro }}</p>
+
+      <div style="margin-top:14px;">
+        {% for phase in plan.host_guide.phases %}
+          <div style="padding:12px 0; border-top:1px solid rgba(255,255,255,.08);">
+            <strong>{{ phase.title }}</strong> <span style="opacity:.7;">· {{ phase.duration }}</span>
+            <p style="margin-top:6px;">{{ phase.text }}</p>
+          </div>
+        {% endfor %}
+      </div>
+
+      {% if plan.host_guide.fallbacks %}
+        <h3 style="margin-top:16px;">Plan B / cómo adaptarlo</h3>
+        <ul>
+          {% for item in plan.host_guide.fallbacks %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if plan.host_guide.closing_line %}
+        <p style="margin-top:12px; opacity:.85;"><strong>Cierre:</strong> {{ plan.host_guide.closing_line }}</p>
+      {% endif %}
     </div>
   {% endif %}
 
