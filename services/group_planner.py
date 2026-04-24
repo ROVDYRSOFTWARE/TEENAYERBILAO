@@ -1,8 +1,111 @@
 from __future__ import annotations
 
 import math
+import re
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
+
+from services import transit_stops
+
+
+GROUP_ACTIVITY_TEMPLATES = [
+    {
+        "id": "icebreaker_cafe",
+        "title": "Rompehielo con merienda",
+        "objectives": {"conocerse", "desconectar"},
+        "energies": {"tranquila", "media"},
+        "weathers": {"lluvia", "indiferente", "sol"},
+        "group_min": 2,
+        "group_max": 8,
+        "social_goal": "Facilitar conversación y confianza sin presión.",
+        "healthy_reason": "Favorece vínculos sanos, escucha y buen ambiente.",
+        "steps": [
+            "Cada persona dice una canción, serie o plan favorito.",
+            "Elegid una merienda entre todos.",
+            "Haced una foto o recuerdo del momento.",
+        ],
+    },
+    {
+        "id": "photo_walk",
+        "title": "Paseo con reto fotográfico",
+        "objectives": {"diversion", "crear", "desconectar"},
+        "energies": {"media"},
+        "weathers": {"sol", "indiferente"},
+        "group_min": 2,
+        "group_max": 10,
+        "social_goal": "Descubrir la ciudad en grupo y cooperar.",
+        "healthy_reason": "Combina movimiento suave, creatividad y conexión social.",
+        "steps": [
+            "Elegid 3 temas para fotos: color, detalle y grupo.",
+            "Cada persona propone una parada.",
+            "Al final votad la foto más divertida.",
+        ],
+    },
+    {
+        "id": "arcade_team",
+        "title": "Reto cooperativo por equipos",
+        "objectives": {"diversion", "moverse"},
+        "energies": {"media", "alta"},
+        "weathers": {"lluvia", "indiferente", "sol"},
+        "group_min": 3,
+        "group_max": 10,
+        "social_goal": "Reírse y colaborar sin competitividad tóxica.",
+        "healthy_reason": "Promueve juego sano, cooperación y energía positiva.",
+        "steps": [
+            "Haced equipos mezclados.",
+            "Poned una prueba cooperativa en cada parada.",
+            "Terminad compartiendo lo mejor del plan.",
+        ],
+    },
+    {
+        "id": "shopping_talk",
+        "title": "Compras + charla + merienda",
+        "objectives": {"compras", "conocerse", "diversion"},
+        "energies": {"tranquila", "media"},
+        "weathers": {"lluvia", "indiferente", "sol"},
+        "group_min": 2,
+        "group_max": 8,
+        "social_goal": "Compartir gustos sin presión y pasar una tarde agradable.",
+        "healthy_reason": "Mezcla ocio urbano con tiempo para hablar y elegir en grupo.",
+        "steps": [
+            "Cada persona propone una tienda o rincón.",
+            "Elegid una compra simbólica o idea favorita.",
+            "Terminad con merienda en sitio tranquilo.",
+        ],
+    },
+    {
+        "id": "museum_chat",
+        "title": "Museo + conversación + merienda",
+        "objectives": {"crear", "conocerse", "desconectar"},
+        "energies": {"tranquila", "media"},
+        "weathers": {"lluvia", "indiferente", "sol"},
+        "group_min": 2,
+        "group_max": 8,
+        "social_goal": "Dar temas de conversación y descubrir cosas nuevas.",
+        "healthy_reason": "Fomenta curiosidad, respeto y conexión entre iguales.",
+        "steps": [
+            "Cada persona elige una obra, espacio o detalle.",
+            "Comentad qué os ha llamado la atención.",
+            "Terminad con una parada corta para merendar.",
+        ],
+    },
+    {
+        "id": "no_phone_hour",
+        "title": "Plan sin móvil 45 minutos",
+        "objectives": {"desconectar", "conocerse"},
+        "energies": {"tranquila", "media"},
+        "weathers": {"indiferente", "lluvia", "sol"},
+        "group_min": 2,
+        "group_max": 8,
+        "social_goal": "Mejorar presencia real y conversación.",
+        "healthy_reason": "Reduce distracciones y favorece atención al grupo.",
+        "steps": [
+            "Guardad el móvil 45 minutos.",
+            "Haced preguntas rápidas para conoceros mejor.",
+            "Al final decidid si repetiríais el reto.",
+        ],
+    },
+]
 
 
 def _today_madrid() -> date:
@@ -53,15 +156,7 @@ def _walk_minutes(distance_km: float | None) -> int | None:
 
 
 def _transport_recommendation(distance_km: float | None) -> str:
-    if distance_km is None:
-        return "Sin datos de coordenadas"
-    if distance_km <= 1.2:
-        return "Ir andando"
-    if distance_km <= 3.0:
-        return "Ir andando o en metro/autobús"
-    if distance_km <= 6.0:
-        return "Mejor metro/autobús o taxi"
-    return "Mejor taxi o transporte público"
+    return transit_stops.transport_recommendation(distance_km)
 
 
 def _route_leg(origin: dict | None, dest: dict | None) -> dict | None:
@@ -102,7 +197,6 @@ def _route_summary(principal: dict | None, comida: dict | None, extra: dict | No
         "total_km": round(total_km, 2) if have_data else None,
         "total_walk_minutes": total_minutes if have_data else None,
         "overall_transport": _transport_recommendation(round(total_km, 2) if have_data else None),
-        "stops_note": "Paradas de metro/autobús pendientes de integrar en una siguiente versión.",
     }
 
 
@@ -116,18 +210,17 @@ def _bucket(item: dict) -> set[str]:
     )
     out = set()
 
-    if any(x in txt for x in ["restaurante", "cafeter", "cafe", "bubble", "pizza", "burger", "helad", "merienda"]):
+    if any(x in txt for x in ["restaurante", "cafe", "cafeter", "bubble", "pizza", "burger", "helad", "merienda"]):
         out.add("food")
-    if any(x in txt for x in ["museo", "gallery", "expos", "cine", "theatre", "teatro", "escape", "bolera", "jump", "arcade", "actividad", "deporte", "rocod", "bowling"]):
+    if any(x in txt for x in ["museo", "gallery", "expos", "cine", "teatro", "escape", "bolera", "jump", "arcade", "actividad", "deporte"]):
         out.add("activity")
     if any(x in txt for x in ["ropa", "shop", "tienda", "sneaker", "manga", "regalo", "beauty", "compra"]):
         out.add("shopping")
-    if any(x in txt for x in ["quedada", "paseo", "park", "parque", "plaza", "mirador"]):
+    if any(x in txt for x in ["quedada", "paseo", "park", "parque", "plaza", "mirador", "nightlife"]):
         out.add("meetup")
-    if any(x in txt for x in ["museo", "attraction", "gallery", "visit", "visita"]):
+    if any(x in txt for x in ["museo", "gallery", "visit", "visita"]):
         out.add("visit")
-    if any(x in txt for x in ["nightlife", "pub", "bar", "discoteca", "nightclub"]):
-        out.add("night")
+
     return out
 
 
@@ -147,13 +240,13 @@ def _budget_score(item: dict, budget: str) -> float:
     if budget == "bajo":
         if "gratis" in txt or "free" in txt:
             return 3.0
-        if "2€" in txt or "3€" in txt or "4€" in txt or "5€" in txt:
+        if any(x in txt for x in ["2€", "3€", "4€", "5€"]):
             return 2.0
         return 0.5
     if budget == "medio":
         if "gratis" in txt:
             return 2.0
-        if "2€" in txt or "3€" in txt or "4€" in txt or "5€" in txt or "10€" in txt:
+        if any(x in txt for x in ["2€", "3€", "4€", "5€", "10€"]):
             return 2.5
         return 1.0
     return 1.5
@@ -182,7 +275,7 @@ def _weather_score(item: dict, weather: str) -> float:
 
 def _energy_score(item: dict, energy: str) -> float:
     txt = _text(item.get("categoria"), item.get("titulo"), item.get("nombre"), item.get("descripcion"))
-    high = any(x in txt for x in ["jump", "bolera", "deporte", "rocod", "parkour", "escape"])
+    high = any(x in txt for x in ["jump", "bolera", "deporte", "rocod", "parkour", "escape", "arcade"])
     low = any(x in txt for x in ["museo", "cafe", "paseo", "merienda", "cine"])
 
     if energy == "alta":
@@ -214,8 +307,59 @@ def _zone_score(item: dict, zone: str) -> float:
     zone = (zone or "").strip().lower()
     if not zone:
         return 1.0
-    txt = _text(item.get("barrio"), item.get("ubicacion"), item.get("direccion"))
+    txt = _text(item.get("barrio"), item.get("ubicacion"), item.get("direccion"), item.get("descripcion"))
     return 2.0 if zone in txt else 0.6
+
+
+def _extract_exact_address(text: str) -> str:
+    raw = str(text or "")
+    if not raw.strip():
+        return ""
+
+    patterns = [
+        r"(?:dirección|direccion|address)\s*:\s*([^|;\n]+)",
+        r"(?:c\/|calle|plaza|avenida|avda\.?|gran vía|gran via|alameda|camino|doctor|licenciado|lehendakari[a]?|sabino arana|luis briñas|tolosa|henao|ercilla|mazarredo|colón|colon)[^|;\n]{0,80}\d+[^\n|;,.]{0,40}",
+        r"pol[ií]gono industrial[^|;\n]{0,80}\d+[^\n|;,.]{0,40}",
+    ]
+
+    for pattern in patterns:
+        m = re.search(pattern, raw, re.I)
+        if m:
+            value = m.group(1) if m.groups() else m.group(0)
+            return re.sub(r"\s+", " ", value).strip(" .,-")
+
+    return ""
+
+
+def _looks_generic_location(value: str) -> bool:
+    low = str(value or "").strip().lower()
+    return low in {"", "bilbao", "bizkaia", "vizcaya", "centro de bilbao"}
+
+
+def _enrich_item(item: dict | None) -> dict | None:
+    if not item:
+        return None
+
+    row = dict(item)
+    exact_from_desc = _extract_exact_address(row.get("descripcion", ""))
+    exact_from_ubi = "" if _looks_generic_location(row.get("ubicacion", "")) else _extract_exact_address(row.get("ubicacion", ""))
+
+    display_address = (
+        str(row.get("direccion") or "").strip()
+        or exact_from_desc
+        or exact_from_ubi
+        or ""
+    )
+
+    display_place = str(row.get("ubicacion") or "").strip()
+    if not display_place or display_place == display_address:
+        display_place = str(row.get("barrio") or "").strip() or "Bilbao"
+
+    row["_display_address"] = display_address
+    row["_display_place"] = display_place
+    row["_nearest_metro"] = transit_stops.best_stop(row, "metro")
+    row["_nearest_bus"] = transit_stops.best_stop(row, "bus")
+    return row
 
 
 def _score_place(item: dict, prefs: dict, profile: dict | None = None) -> float:
@@ -266,6 +410,36 @@ def _pick_near_zone(candidates: list[dict], used_ids: set[str], wanted: set[str]
     return _pick_best(candidates, used_ids, wanted, prefs_local, profile)
 
 
+def _select_group_activity(prefs: dict) -> dict:
+    objective = prefs.get("objective", "diversion")
+    energy = prefs.get("energy", "media")
+    weather = prefs.get("weather", "indiferente")
+    try:
+        group_size = int(prefs.get("group_size", 4))
+    except Exception:
+        group_size = 4
+
+    best = None
+    best_score = -999
+
+    for tpl in GROUP_ACTIVITY_TEMPLATES:
+        score = 0
+        if objective in tpl["objectives"]:
+            score += 4
+        if energy in tpl["energies"]:
+            score += 2
+        if weather in tpl["weathers"]:
+            score += 2
+        if tpl["group_min"] <= group_size <= tpl["group_max"]:
+            score += 2
+
+        if score > best_score:
+            best_score = score
+            best = tpl
+
+    return best or GROUP_ACTIVITY_TEMPLATES[0]
+
+
 def enrich_today_plan(token: str, plan: dict, events: list[dict], places: list[dict], profile: dict | None = None) -> dict:
     plan = dict(plan or {})
     used_ids: set[str] = set()
@@ -284,6 +458,7 @@ def enrich_today_plan(token: str, plan: dict, events: list[dict], places: list[d
     safe_places = [x for x in places if _safe_for_teens(x)]
 
     today_prefs = {
+        "group_size": 3,
         "budget": "medio",
         "energy": "media",
         "objective": "diversion",
@@ -322,7 +497,12 @@ def enrich_today_plan(token: str, plan: dict, events: list[dict], places: list[d
             profile,
         )
 
+    principal = _enrich_item(principal)
+    comida = _enrich_item(comida)
+    extra = _enrich_item(extra)
+
     route = _route_summary(principal, comida, extra)
+    group_activity = _select_group_activity(today_prefs)
 
     return {
         "principal": principal,
@@ -334,6 +514,7 @@ def enrich_today_plan(token: str, plan: dict, events: list[dict], places: list[d
             "subtitle": "Actividad principal + parada para comer o merendar + extra saludable",
         },
         "route": route,
+        "group_activity": group_activity,
     }
 
 
@@ -347,7 +528,7 @@ def _event_bonus(event: dict, prefs: dict) -> float:
     if prefs.get("weather") == "lluvia" and any(x in txt for x in ["museo", "teatro", "cine", "interior"]):
         score += 1.0
 
-    if prefs.get("energy") == "alta" and any(x in txt for x in ["deporte", "jump", "escape", "bolera"]):
+    if prefs.get("energy") == "alta" and any(x in txt for x in ["deporte", "jump", "escape", "bolera", "arcade"]):
         score += 1.0
 
     if not _safe_for_teens(event):
@@ -399,12 +580,12 @@ def build_group_plan(token: str, events: list[dict], places: list[dict], profile
         profile,
     )
 
-    extra_objective = prefs.get("objective", "diversion")
-    if extra_objective == "compras":
+    objective = prefs.get("objective", "diversion")
+    if objective == "compras":
         wanted_extra = {"shopping", "meetup", "food"}
-    elif extra_objective == "conocerse":
+    elif objective == "conocerse":
         wanted_extra = {"meetup", "visit", "food"}
-    elif extra_objective == "moverse":
+    elif objective == "moverse":
         wanted_extra = {"activity", "meetup", "visit"}
     else:
         wanted_extra = {"shopping", "visit", "activity", "meetup"}
@@ -418,7 +599,12 @@ def build_group_plan(token: str, events: list[dict], places: list[dict], profile
         profile,
     )
 
+    principal = _enrich_item(principal)
+    comida = _enrich_item(comida)
+    extra = _enrich_item(extra)
+
     route = _route_summary(principal, comida, extra)
+    group_activity = _select_group_activity(prefs)
 
     explanations = {
         "diversion": "He priorizado un plan dinámico, variado y fácil de compartir con amigos.",
@@ -435,9 +621,10 @@ def build_group_plan(token: str, events: list[dict], places: list[dict], profile
         "comida": comida,
         "extra": extra,
         "route": route,
+        "group_activity": group_activity,
         "summary": {
             "title": "Plan de grupo adolescente",
-            "subtitle": explanations.get(prefs.get("objective", "diversion"), "Plan sano y social para grupo."),
+            "subtitle": explanations.get(objective, "Plan sano y social para grupo."),
             "group_size": prefs.get("group_size"),
             "age_band": prefs.get("age_band"),
             "budget": prefs.get("budget"),
@@ -445,9 +632,9 @@ def build_group_plan(token: str, events: list[dict], places: list[dict], profile
             "duration": prefs.get("duration"),
         },
         "tips": [
-            "Propón una foto de grupo o mini reto cooperativo al inicio.",
-            "Evita meter demasiadas paradas para que el plan no se haga pesado.",
-            "Si el grupo es nuevo, empieza por un sitio donde hablar sea fácil.",
+            "Empieza por una dinámica suave para que todo el grupo entre cómodo.",
+            "Evita prisas: mejor 2 o 3 paradas buenas que demasiadas.",
+            "Si el grupo es nuevo, mezcla conversación + actividad + merienda.",
         ],
     }
 
