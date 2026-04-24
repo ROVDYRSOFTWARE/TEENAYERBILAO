@@ -2,47 +2,79 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>{% block title %}Teenager Bilbao{% endblock %}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #f6f7fb; color: #1d2433; }
-    nav { background: #111827; color: white; padding: 14px 18px; display:flex; gap:14px; flex-wrap:wrap; }
-    nav a { color: white; text-decoration: none; font-weight: 600; }
-    .container { max-width: 1080px; margin: 0 auto; padding: 20px; }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
-    .card { background:white; border-radius:16px; padding:16px; box-shadow: 0 4px 18px rgba(0,0,0,.07); }
-    .muted { color:#6b7280; }
-    .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:12px; margin-right:6px; margin-bottom:6px; }
-    .btn { display:inline-block; padding:10px 14px; border-radius:10px; text-decoration:none; background:#2563eb; color:white; border:none; cursor:pointer; }
-    .btn.secondary { background:#111827; }
-    .btn.warn { background:#b91c1c; }
-    form.inline { display:inline; }
-    input, textarea, select { width:100%; padding:10px; border:1px solid #d1d5db; border-radius:10px; margin-top:6px; margin-bottom:12px; box-sizing:border-box; }
-    label { font-weight:600; display:block; }
-    table { width:100%; border-collapse: collapse; background:white; }
-    th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; vertical-align:top; }
-    .flash { background:#ecfccb; color:#365314; padding:12px 14px; border-radius:12px; margin-bottom:16px; }
-    .hero { background: linear-gradient(135deg,#111827,#1d4ed8); color:white; padding:24px; border-radius:18px; margin-bottom:18px; }
-  </style>
+  <meta name="theme-color" content="#0b1020">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Archivo:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {% block head %}{% endblock %}
 </head>
 <body>
-<nav>
-  <a href="{{ url_for('home') }}">Inicio</a>
-  <a href="{{ url_for('eventos') }}">Eventos</a>
-  <a href="{{ url_for('lugares') }}">Lugares</a>
-  <a href="{{ url_for('recomendado') }}">Recomendado</a>
-  <a href="{{ url_for('plan_hoy') }}">Plan hoy</a>
-  <a href="{{ url_for('preferencias') }}">Preferencias</a>
-</nav>
-<div class="container">
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      {% for msg in messages %}
-        <div class="flash">{{ msg }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-  {% block content %}{% endblock %}
-</div>
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+  <div class="bg-orb bg-orb-3"></div>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-wrap">
+        <a href="{{ url_for('home') }}" class="brand">
+          <span class="brand-badge">TB</span>
+          <span class="brand-text">
+            <strong>Teenager Bilbao</strong>
+            <small>Planes reales para hoy</small>
+          </span>
+        </a>
+      </div>
+
+      <div class="topbar-actions">
+        <a class="icon-btn" href="{{ url_for('preferencias') }}" aria-label="Preferencias">⚙️</a>
+      </div>
+    </header>
+
+    <main class="page">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="flash-stack">
+            {% for message in messages %}
+              <div class="flash-card">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <nav class="bottom-nav">
+      <a href="{{ url_for('home') }}" class="bottom-nav-item {% if request.path == url_for('home') %}active{% endif %}">
+        <span class="bottom-nav-icon">🏠</span>
+        <span>Inicio</span>
+      </a>
+
+      <a href="{{ url_for('plan_hoy') }}" class="bottom-nav-item {% if request.path.startswith('/plan-hoy') %}active{% endif %}">
+        <span class="bottom-nav-icon">✨</span>
+        <span>Hoy</span>
+      </a>
+
+      <a href="{{ url_for('plan_grupo') }}" class="bottom-nav-item bottom-nav-item-main {% if request.path.startswith('/plan-grupo') %}active{% endif %}">
+        <span class="bottom-nav-icon">👥</span>
+        <span>Grupo</span>
+      </a>
+
+      <a href="{{ url_for('lugares') }}" class="bottom-nav-item {% if request.path.startswith('/lugares') %}active{% endif %}">
+        <span class="bottom-nav-icon">📍</span>
+        <span>Lugares</span>
+      </a>
+
+      <a href="{{ url_for('recomendado') }}" class="bottom-nav-item {% if request.path.startswith('/recomendado') %}active{% endif %}">
+        <span class="bottom-nav-icon">🔥</span>
+        <span>Top</span>
+      </a>
+    </nav>
+  </div>
+
+  {% block scripts %}{% endblock %}
 </body>
 </html>
