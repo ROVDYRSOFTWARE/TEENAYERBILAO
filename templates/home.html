@@ -1,33 +1,181 @@
 {% extends 'base.html' %}
-{% block title %}Inicio{% endblock %}
+{% block title %}Teenager Bilbao{% endblock %}
+
 {% block content %}
-<div class="hero">
-  <h1>Teenager Bilbao</h1>
-  <p>Motor de planes con recomendación anónima por histórico y gustos.</p>
-  <p class="muted">Token actual: {{ token }}</p>
-</div>
-<div class="card" style="margin-bottom:16px;">
-  <h2>Cómo funciona</h2>
-  <p>La web aprende con tus clics, barrios, categorías y franjas favoritas. No hace falta login.</p>
-  <a class="btn" href="{{ url_for('preferencias') }}">Definir gustos</a>
-  <a class="btn secondary" href="{{ url_for('recomendado') }}">Ver recomendado</a>
-</div>
-<h2>Primeros recomendados</h2>
-<div class="grid">
-{% for item in ranked %}
-  <div class="card">
-    <div class="pill">{{ item._entity_type }}</div>
-    <div class="pill">{{ item.categoria }}</div>
-    <div class="pill">{{ item.barrio }}</div>
-    <h3>{{ item.titulo or item.nombre }}</h3>
-    <p>{{ item.descripcion[:150] }}{% if item.descripcion|length > 150 %}...{% endif %}</p>
-    <p class="muted">Score {{ item.score }}</p>
-    {% if item._entity_type == 'evento' %}
-      <a class="btn" href="{{ url_for('evento_detalle', event_id=item.id) }}">Abrir</a>
-    {% else %}
-      <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Abrir</a>
-    {% endif %}
+<div class="card hero-card">
+  <div class="hero-kicker">⚡ Planes reales · Bilbao · hoy</div>
+  <h1>Descubre planes con vibe para ti y tu grupo</h1>
+  <p>
+    Actividades, sitios para merendar, compras, cultura y planes de grupo
+    pensados para adolescentes de Bilbao y alrededores.
+  </p>
+
+  <div class="tag-row" style="margin-top:10px;">
+    <span class="pill">🎳 Actividades</span>
+    <span class="pill">🍔 Merienda</span>
+    <span class="pill">🛍️ Compras</span>
+    <span class="pill">👥 En grupo</span>
+    <span class="pill">🌧️ Plan lluvia</span>
   </div>
-{% endfor %}
+
+  <div class="hero-actions">
+    <a class="btn" href="{{ url_for('plan_hoy') }}">Ver plan de hoy</a>
+    <a class="btn secondary" href="{{ url_for('plan_grupo') }}">Crear plan en grupo</a>
+    <a class="btn ghost" href="{{ url_for('lugares') }}">Explorar lugares</a>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Cómo funciona</h2>
+    <div class="timeline" style="margin-top:12px;">
+      <div class="timeline-step">
+        <strong>1. Dinos qué te va</strong>
+        <p>Elige gustos, zonas y momentos favoritos para afinar mejor las recomendaciones.</p>
+      </div>
+      <div class="timeline-step">
+        <strong>2. Te montamos un plan</strong>
+        <p>La app combina actividad principal, comida o merienda y un extra para completar la tarde.</p>
+      </div>
+      <div class="timeline-step">
+        <strong>3. Compártelo con tu gente</strong>
+        <p>Genera un QR y pásalo por WhatsApp para que todo el grupo vea el plan.</p>
+      </div>
+    </div>
+
+    <div class="hero-actions" style="margin-top:18px;">
+      <a class="btn secondary" href="{{ url_for('preferencias') }}">Definir gustos</a>
+      <a class="btn ghost" href="{{ url_for('recomendado') }}">Ver recomendado</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Empieza por aquí</h2>
+    <div class="list-clean" style="margin-top:12px;">
+      <a class="stat-chip" href="{{ url_for('plan_hoy') }}">✨ Quiero un plan ya mismo</a>
+      <a class="stat-chip" href="{{ url_for('plan_grupo') }}">👥 Somos varios y queremos ideas</a>
+      <a class="stat-chip" href="{{ url_for('lugares') }}">📍 Quiero mirar sitios por mi cuenta</a>
+      <a class="stat-chip" href="{{ url_for('eventos') }}">🎫 Ver eventos próximos</a>
+      <a class="stat-chip" href="{{ url_for('recomendado') }}">🔥 Ver lo más top para mí</a>
+    </div>
+
+    <div style="margin-top:18px;">
+      <p class="soft">Consejo</p>
+      <p>
+        Si marcas gustos y luego das me gusta o no me interesa a varios planes,
+        la selección mejora bastante.
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Ideas rápidas</h2>
+    <div class="grid" style="margin-top:10px;">
+      <div class="stat-chip" style="grid-column:span 6;">🌧️ Lluvia + interior</div>
+      <div class="stat-chip" style="grid-column:span 6;">💸 Barato</div>
+      <div class="stat-chip" style="grid-column:span 6;">🫶 Grupo nuevo</div>
+      <div class="stat-chip" style="grid-column:span 6;">🎨 Creativo</div>
+      <div class="stat-chip" style="grid-column:span 6;">🚶 Paseo + charla</div>
+      <div class="stat-chip" style="grid-column:span 6;">🛍️ Compras + merienda</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title" style="margin-top:8px;">
+  <div>
+    <h2>Top para ti</h2>
+    <p>Una selección rápida para empezar a descubrir.</p>
+  </div>
+  <a class="btn secondary hide-mobile" href="{{ url_for('recomendado') }}">Ver todo</a>
+</div>
+
+{% if ranked %}
+  <div class="grid">
+    {% for item in ranked %}
+      <div class="card feed-card">
+        <div class="meta">
+          {% if item._entity_type == 'evento' %}
+            <span class="pill">🎫 Evento</span>
+          {% else %}
+            <span class="pill">📍 Lugar</span>
+          {% endif %}
+
+          {% if item.categoria %}
+            <span class="pill">{{ item.categoria }}</span>
+          {% endif %}
+          {% if item.barrio %}
+            <span class="pill">{{ item.barrio }}</span>
+          {% endif %}
+          {% if item.precio_tipo %}
+            <span class="pill">{{ item.precio_tipo }}</span>
+          {% endif %}
+        </div>
+
+        <h3 style="font-size:1.35rem; margin-bottom:8px;">
+          {{ item.titulo or item.nombre or 'Plan recomendado' }}
+        </h3>
+
+        {% if item.fecha %}
+          <p><strong>Fecha:</strong> {{ item.fecha }}</p>
+        {% endif %}
+        {% if item.ubicacion %}
+          <p><strong>Lugar:</strong> {{ item.ubicacion }}</p>
+        {% endif %}
+        {% if item.direccion %}
+          <p><strong>Dirección:</strong> {{ item.direccion }}</p>
+        {% endif %}
+
+        {% if item.descripcion %}
+          <p>{{ item.descripcion[:150] }}{% if item.descripcion|length > 150 %}...{% endif %}</p>
+        {% endif %}
+
+        <div class="actions">
+          {% if item._entity_type == 'evento' %}
+            <a class="btn" href="{{ url_for('evento_detalle', event_id=item.id) }}">Ver plan</a>
+            <a class="btn secondary" href="{{ url_for('accion', entity_type='evento', entity_id=item.id, action='like') }}">❤️ Me gusta</a>
+          {% else %}
+            <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver sitio</a>
+            <a class="btn secondary" href="{{ url_for('accion', entity_type='lugar', entity_id=item.id, action='like') }}">❤️ Me gusta</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card center">
+    <h2>Aún no hay planes cargados</h2>
+    <p>En cuanto entren datos, aquí verás recomendaciones destacadas para empezar.</p>
+    <div class="hero-actions" style="justify-content:center;">
+      <a class="btn" href="{{ url_for('plan_hoy') }}">Ir al plan de hoy</a>
+      <a class="btn secondary" href="{{ url_for('plan_grupo') }}">Crear plan de grupo</a>
+    </div>
+  </div>
+{% endif %}
+
+<div class="section-title" style="margin-top:8px;">
+  <div>
+    <h2>Explora según el mood</h2>
+    <p>Accesos rápidos para no perder tiempo.</p>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>👥 Con amigas o en grupo</h3>
+    <p>Planes con actividad, merienda y un extra para que nadie se aburra.</p>
+    <a class="btn secondary" href="{{ url_for('plan_grupo') }}">Abrir plan grupo</a>
+  </div>
+
+  <div class="card">
+    <h3>✨ Para hoy</h3>
+    <p>Si quieres algo directo, aquí tienes un plan ya montado con recorrido y propuesta social.</p>
+    <a class="btn secondary" href="{{ url_for('plan_hoy') }}">Ver plan de hoy</a>
+  </div>
+
+  <div class="card">
+    <h3>📍 Sitios para descubrir</h3>
+    <p>Lugares para comer, comprar, visitar o quedar según el rollo que te apetezca.</p>
+    <a class="btn secondary" href="{{ url_for('lugares') }}">Explorar lugares</a>
+  </div>
 </div>
 {% endblock %}
