@@ -17,7 +17,11 @@
     </div>
 
     <div style="min-width:220px;">
-      <img src="{{ shared.qr_url }}" alt="QR del plan compartido" style="width:220px; height:220px; border-radius:12px; background:#fff; padding:8px;">
+      <img
+        src="{{ shared.qr_url }}"
+        alt="QR del plan compartido"
+        style="width:220px; height:220px; border-radius:12px; background:#fff; padding:8px;"
+      >
     </div>
   </div>
 </div>
@@ -28,6 +32,14 @@
     {% if plan.summary.subtitle %}
       <p>{{ plan.summary.subtitle }}</p>
     {% endif %}
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+      {% if plan.summary.group_size %}<span class="pill">{{ plan.summary.group_size }} personas</span>{% endif %}
+      {% if plan.summary.age_band %}<span class="pill">{{ plan.summary.age_band }}</span>{% endif %}
+      {% if plan.summary.budget %}<span class="pill">{{ plan.summary.budget }}</span>{% endif %}
+      {% if plan.summary.energy %}<span class="pill">{{ plan.summary.energy }}</span>{% endif %}
+      {% if plan.summary.duration %}<span class="pill">{{ plan.summary.duration }}</span>{% endif %}
+    </div>
   </div>
 {% endif %}
 
@@ -37,13 +49,40 @@
     {% if plan.principal %}
       <div class="pill">{{ plan.principal.categoria }}</div>
       <h3>{{ plan.principal.titulo or plan.principal.nombre }}</h3>
-      {% if plan.principal.fecha %}<p><strong>Fecha:</strong> {{ plan.principal.fecha }}</p>{% endif %}
-      {% if plan.principal.ubicacion %}<p><strong>Lugar:</strong> {{ plan.principal.ubicacion }}</p>{% endif %}
-      {% if plan.principal.direccion %}<p><strong>Dirección:</strong> {{ plan.principal.direccion }}</p>{% endif %}
-      <p>{{ plan.principal.descripcion }}</p>
-      {% if plan.principal._maps_url or plan.principal.maps_url %}
-        <p><a class="btn secondary" href="{{ plan.principal._maps_url or plan.principal.maps_url }}" target="_blank">Mapa</a></p>
+
+      {% if plan.principal.fecha %}
+        <p><strong>Fecha:</strong> {{ plan.principal.fecha }}</p>
       {% endif %}
+      {% if plan.principal._display_place %}
+        <p><strong>Lugar:</strong> {{ plan.principal._display_place }}</p>
+      {% elif plan.principal.ubicacion %}
+        <p><strong>Lugar:</strong> {{ plan.principal.ubicacion }}</p>
+      {% endif %}
+      {% if plan.principal._display_address %}
+        <p><strong>Dirección exacta:</strong> {{ plan.principal._display_address }}</p>
+      {% elif plan.principal.direccion %}
+        <p><strong>Dirección:</strong> {{ plan.principal.direccion }}</p>
+      {% endif %}
+      {% if plan.principal.punto_quedada %}
+        <p><strong>Punto de quedada:</strong> {{ plan.principal.punto_quedada }}</p>
+      {% endif %}
+      {% if plan.principal._nearest_metro %}
+        <p><strong>Metro cercano:</strong> {{ plan.principal._nearest_metro.name }} · {{ plan.principal._nearest_metro.walk_minutes }} min andando</p>
+      {% endif %}
+      {% if plan.principal._nearest_bus %}
+        <p><strong>Bus cercano:</strong> {{ plan.principal._nearest_bus.name }} · {{ plan.principal._nearest_bus.walk_minutes }} min andando</p>
+      {% endif %}
+
+      <p>{{ plan.principal.descripcion }}</p>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+        {% if plan.principal._maps_url or plan.principal.maps_url %}
+          <a class="btn secondary" href="{{ plan.principal._maps_url or plan.principal.maps_url }}" target="_blank">Mapa</a>
+        {% endif %}
+        {% if plan.principal.url %}
+          <a class="btn" href="{{ plan.principal.url }}" target="_blank" rel="noopener">Ver más</a>
+        {% endif %}
+      </div>
     {% else %}
       <p>No disponible.</p>
     {% endif %}
@@ -54,13 +93,37 @@
     {% if plan.comida %}
       <div class="pill">{{ plan.comida.categoria }}</div>
       <h3>{{ plan.comida.titulo or plan.comida.nombre }}</h3>
-      {% if plan.comida.ubicacion %}<p><strong>Lugar:</strong> {{ plan.comida.ubicacion }}</p>{% endif %}
-      {% if plan.comida.direccion %}<p><strong>Dirección:</strong> {{ plan.comida.direccion }}</p>{% endif %}
-      {% if plan.comida.horario %}<p><strong>Horario:</strong> {{ plan.comida.horario }}</p>{% endif %}
-      <p>{{ plan.comida.descripcion }}</p>
-      {% if plan.comida._maps_url or plan.comida.maps_url %}
-        <p><a class="btn secondary" href="{{ plan.comida._maps_url or plan.comida.maps_url }}" target="_blank">Mapa</a></p>
+
+      {% if plan.comida._display_place %}
+        <p><strong>Lugar:</strong> {{ plan.comida._display_place }}</p>
+      {% elif plan.comida.ubicacion %}
+        <p><strong>Lugar:</strong> {{ plan.comida.ubicacion }}</p>
       {% endif %}
+      {% if plan.comida._display_address %}
+        <p><strong>Dirección exacta:</strong> {{ plan.comida._display_address }}</p>
+      {% elif plan.comida.direccion %}
+        <p><strong>Dirección:</strong> {{ plan.comida.direccion }}</p>
+      {% endif %}
+      {% if plan.comida.horario %}
+        <p><strong>Horario:</strong> {{ plan.comida.horario }}</p>
+      {% endif %}
+      {% if plan.comida._nearest_metro %}
+        <p><strong>Metro cercano:</strong> {{ plan.comida._nearest_metro.name }} · {{ plan.comida._nearest_metro.walk_minutes }} min andando</p>
+      {% endif %}
+      {% if plan.comida._nearest_bus %}
+        <p><strong>Bus cercano:</strong> {{ plan.comida._nearest_bus.name }} · {{ plan.comida._nearest_bus.walk_minutes }} min andando</p>
+      {% endif %}
+
+      <p>{{ plan.comida.descripcion }}</p>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+        {% if plan.comida._maps_url or plan.comida.maps_url %}
+          <a class="btn secondary" href="{{ plan.comida._maps_url or plan.comida.maps_url }}" target="_blank">Mapa</a>
+        {% endif %}
+        {% if plan.comida.url %}
+          <a class="btn" href="{{ plan.comida.url }}" target="_blank" rel="noopener">Ver más</a>
+        {% endif %}
+      </div>
     {% else %}
       <p>No disponible.</p>
     {% endif %}
@@ -71,18 +134,96 @@
     {% if plan.extra %}
       <div class="pill">{{ plan.extra.categoria }}</div>
       <h3>{{ plan.extra.titulo or plan.extra.nombre }}</h3>
-      {% if plan.extra.ubicacion %}<p><strong>Lugar:</strong> {{ plan.extra.ubicacion }}</p>{% endif %}
-      {% if plan.extra.direccion %}<p><strong>Dirección:</strong> {{ plan.extra.direccion }}</p>{% endif %}
-      {% if plan.extra.horario %}<p><strong>Horario:</strong> {{ plan.extra.horario }}</p>{% endif %}
-      <p>{{ plan.extra.descripcion }}</p>
-      {% if plan.extra._maps_url or plan.extra.maps_url %}
-        <p><a class="btn secondary" href="{{ plan.extra._maps_url or plan.extra.maps_url }}" target="_blank">Mapa</a></p>
+
+      {% if plan.extra._display_place %}
+        <p><strong>Lugar:</strong> {{ plan.extra._display_place }}</p>
+      {% elif plan.extra.ubicacion %}
+        <p><strong>Lugar:</strong> {{ plan.extra.ubicacion }}</p>
       {% endif %}
+      {% if plan.extra._display_address %}
+        <p><strong>Dirección exacta:</strong> {{ plan.extra._display_address }}</p>
+      {% elif plan.extra.direccion %}
+        <p><strong>Dirección:</strong> {{ plan.extra.direccion }}</p>
+      {% endif %}
+      {% if plan.extra.horario %}
+        <p><strong>Horario:</strong> {{ plan.extra.horario }}</p>
+      {% endif %}
+      {% if plan.extra._nearest_metro %}
+        <p><strong>Metro cercano:</strong> {{ plan.extra._nearest_metro.name }} · {{ plan.extra._nearest_metro.walk_minutes }} min andando</p>
+      {% endif %}
+      {% if plan.extra._nearest_bus %}
+        <p><strong>Bus cercano:</strong> {{ plan.extra._nearest_bus.name }} · {{ plan.extra._nearest_bus.walk_minutes }} min andando</p>
+      {% endif %}
+
+      <p>{{ plan.extra.descripcion }}</p>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+        {% if plan.extra._maps_url or plan.extra.maps_url %}
+          <a class="btn secondary" href="{{ plan.extra._maps_url or plan.extra.maps_url }}" target="_blank">Mapa</a>
+        {% endif %}
+        {% if plan.extra.url %}
+          <a class="btn" href="{{ plan.extra.url }}" target="_blank" rel="noopener">Ver más</a>
+        {% endif %}
+      </div>
     {% else %}
       <p>No disponible.</p>
     {% endif %}
   </div>
 </div>
+
+{% if plan.group_activity %}
+  <div class="card" style="margin-top:16px;">
+    <h2>Actividad de grupo recomendada</h2>
+    <h3>{{ plan.group_activity.title }}</h3>
+    {% if plan.group_activity.social_goal %}
+      <p><strong>Objetivo social:</strong> {{ plan.group_activity.social_goal }}</p>
+    {% endif %}
+    {% if plan.group_activity.healthy_reason %}
+      <p><strong>Por qué encaja:</strong> {{ plan.group_activity.healthy_reason }}</p>
+    {% endif %}
+    {% if plan.group_activity.steps %}
+      <ol>
+        {% for step in plan.group_activity.steps %}
+          <li>{{ step }}</li>
+        {% endfor %}
+      </ol>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% if plan.host_guide %}
+  <div class="card" style="margin-top:16px;">
+    <h2>{{ plan.host_guide.title }}</h2>
+    {% if plan.host_guide.intro %}
+      <p>{{ plan.host_guide.intro }}</p>
+    {% endif %}
+
+    {% if plan.host_guide.phases %}
+      <div style="margin-top:14px;">
+        {% for phase in plan.host_guide.phases %}
+          <div style="padding:12px 0; border-top:1px solid rgba(255,255,255,.08);">
+            <strong>{{ phase.title }}</strong>
+            {% if phase.duration %}<span style="opacity:.7;"> · {{ phase.duration }}</span>{% endif %}
+            <p style="margin-top:6px;">{{ phase.text }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if plan.host_guide.fallbacks %}
+      <h3 style="margin-top:16px;">Plan B / cómo adaptarlo</h3>
+      <ul>
+        {% for item in plan.host_guide.fallbacks %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% if plan.host_guide.closing_line %}
+      <p style="margin-top:12px; opacity:.85;"><strong>Cierre:</strong> {{ plan.host_guide.closing_line }}</p>
+    {% endif %}
+  </div>
+{% endif %}
 
 {% if plan.route %}
   <div class="card" style="margin-top:16px;">
@@ -93,6 +234,21 @@
       <p><strong>Transporte recomendado:</strong> {{ plan.route.overall_transport }}</p>
     {% else %}
       <p>No hay suficientes coordenadas para calcular el desplazamiento exacto.</p>
+    {% endif %}
+
+    {% if plan.route.legs %}
+      <div style="margin-top:12px;">
+        {% for leg in plan.route.legs %}
+          <div style="padding:10px 0; border-top:1px solid rgba(255,255,255,.08);">
+            <strong>{{ leg.from }}</strong> → <strong>{{ leg.to }}</strong><br>
+            {% if leg.distance_km is not none %}
+              {{ leg.distance_km }} km · {{ leg.walk_minutes }} min andando · {{ leg.transport }}
+            {% else %}
+              Distancia no disponible · {{ leg.transport }}
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
     {% endif %}
   </div>
 {% endif %}
