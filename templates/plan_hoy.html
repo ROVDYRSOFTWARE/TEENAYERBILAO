@@ -178,3 +178,32 @@
   </div>
 {% endif %}
 {% endblock %}
+
+{% if plan.host_guide %}
+  <div class="card" style="margin-top:16px;">
+    <h2>{{ plan.host_guide.title }}</h2>
+    <p>{{ plan.host_guide.intro }}</p>
+
+    <div style="margin-top:14px;">
+      {% for phase in plan.host_guide.phases %}
+        <div style="padding:12px 0; border-top:1px solid rgba(255,255,255,.08);">
+          <strong>{{ phase.title }}</strong> <span style="opacity:.7;">· {{ phase.duration }}</span>
+          <p style="margin-top:6px;">{{ phase.text }}</p>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if plan.host_guide.fallbacks %}
+      <h3 style="margin-top:16px;">Plan B / cómo adaptarlo</h3>
+      <ul>
+        {% for item in plan.host_guide.fallbacks %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% if plan.host_guide.closing_line %}
+      <p style="margin-top:12px; opacity:.85;"><strong>Cierre:</strong> {{ plan.host_guide.closing_line }}</p>
+    {% endif %}
+  </div>
+{% endif %}
