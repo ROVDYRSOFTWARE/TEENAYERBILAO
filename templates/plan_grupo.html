@@ -39,18 +39,18 @@
     <div>
       <label><strong>Presupuesto</strong></label>
       <select name="budget" style="width:100%; margin-top:8px;">
-        {% for value in ['bajo', 'medio', 'alto'] %}
-          <option value="{{ value }}" {% if form_data.budget == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
+        <option value="bajo" {% if form_data.budget == 'bajo' %}selected{% endif %}>Bajo</option>
+        <option value="medio" {% if form_data.budget == 'medio' %}selected{% endif %}>Medio</option>
+        <option value="alto" {% if form_data.budget == 'alto' %}selected{% endif %}>Alto</option>
       </select>
     </div>
 
     <div>
       <label><strong>Energía del grupo</strong></label>
       <select name="energy" style="width:100%; margin-top:8px;">
-        {% for value in ['tranquila', 'media', 'alta'] %}
-          <option value="{{ value }}" {% if form_data.energy == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
+        <option value="tranquila" {% if form_data.energy == 'tranquila' %}selected{% endif %}>Tranquila</option>
+        <option value="media" {% if form_data.energy == 'media' %}selected{% endif %}>Media</option>
+        <option value="alta" {% if form_data.energy == 'alta' %}selected{% endif %}>Alta</option>
       </select>
     </div>
 
@@ -132,8 +132,10 @@
         <div class="pill">{{ plan.principal.categoria }}</div>
         <h3>{{ plan.principal.titulo or plan.principal.nombre }}</h3>
         {% if plan.principal.fecha %}<p><strong>Fecha:</strong> {{ plan.principal.fecha }}</p>{% endif %}
-        {% if plan.principal.ubicacion %}<p><strong>Lugar:</strong> {{ plan.principal.ubicacion }}</p>{% endif %}
-        {% if plan.principal.direccion %}<p><strong>Dirección:</strong> {{ plan.principal.direccion }}</p>{% endif %}
+        {% if plan.principal._display_place %}<p><strong>Lugar:</strong> {{ plan.principal._display_place }}</p>{% endif %}
+        {% if plan.principal._display_address %}<p><strong>Dirección exacta:</strong> {{ plan.principal._display_address }}</p>{% endif %}
+        {% if plan.principal._nearest_metro %}<p><strong>Metro cercano:</strong> {{ plan.principal._nearest_metro.name }} · {{ plan.principal._nearest_metro.walk_minutes }} min</p>{% endif %}
+        {% if plan.principal._nearest_bus %}<p><strong>Bus cercano:</strong> {{ plan.principal._nearest_bus.name }} · {{ plan.principal._nearest_bus.walk_minutes }} min</p>{% endif %}
         <p>{{ plan.principal.descripcion }}</p>
         {% if plan.principal._maps_url %}<p><a class="btn secondary" href="{{ plan.principal._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
       {% else %}
@@ -146,9 +148,11 @@
       {% if plan.comida %}
         <div class="pill">{{ plan.comida.categoria }}</div>
         <h3>{{ plan.comida.titulo or plan.comida.nombre }}</h3>
-        {% if plan.comida.ubicacion %}<p><strong>Lugar:</strong> {{ plan.comida.ubicacion }}</p>{% endif %}
-        {% if plan.comida.direccion %}<p><strong>Dirección:</strong> {{ plan.comida.direccion }}</p>{% endif %}
+        {% if plan.comida._display_place %}<p><strong>Lugar:</strong> {{ plan.comida._display_place }}</p>{% endif %}
+        {% if plan.comida._display_address %}<p><strong>Dirección exacta:</strong> {{ plan.comida._display_address }}</p>{% endif %}
         {% if plan.comida.horario %}<p><strong>Horario:</strong> {{ plan.comida.horario }}</p>{% endif %}
+        {% if plan.comida._nearest_metro %}<p><strong>Metro cercano:</strong> {{ plan.comida._nearest_metro.name }} · {{ plan.comida._nearest_metro.walk_minutes }} min</p>{% endif %}
+        {% if plan.comida._nearest_bus %}<p><strong>Bus cercano:</strong> {{ plan.comida._nearest_bus.name }} · {{ plan.comida._nearest_bus.walk_minutes }} min</p>{% endif %}
         <p>{{ plan.comida.descripcion }}</p>
         {% if plan.comida._maps_url %}<p><a class="btn secondary" href="{{ plan.comida._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
       {% else %}
@@ -161,9 +165,11 @@
       {% if plan.extra %}
         <div class="pill">{{ plan.extra.categoria }}</div>
         <h3>{{ plan.extra.titulo or plan.extra.nombre }}</h3>
-        {% if plan.extra.ubicacion %}<p><strong>Lugar:</strong> {{ plan.extra.ubicacion }}</p>{% endif %}
-        {% if plan.extra.direccion %}<p><strong>Dirección:</strong> {{ plan.extra.direccion }}</p>{% endif %}
+        {% if plan.extra._display_place %}<p><strong>Lugar:</strong> {{ plan.extra._display_place }}</p>{% endif %}
+        {% if plan.extra._display_address %}<p><strong>Dirección exacta:</strong> {{ plan.extra._display_address }}</p>{% endif %}
         {% if plan.extra.horario %}<p><strong>Horario:</strong> {{ plan.extra.horario }}</p>{% endif %}
+        {% if plan.extra._nearest_metro %}<p><strong>Metro cercano:</strong> {{ plan.extra._nearest_metro.name }} · {{ plan.extra._nearest_metro.walk_minutes }} min</p>{% endif %}
+        {% if plan.extra._nearest_bus %}<p><strong>Bus cercano:</strong> {{ plan.extra._nearest_bus.name }} · {{ plan.extra._nearest_bus.walk_minutes }} min</p>{% endif %}
         <p>{{ plan.extra.descripcion }}</p>
         {% if plan.extra._maps_url %}<p><a class="btn secondary" href="{{ plan.extra._maps_url }}" target="_blank">Mapa</a></p>{% endif %}
       {% else %}
@@ -171,6 +177,20 @@
       {% endif %}
     </div>
   </div>
+
+  {% if plan.group_activity %}
+    <div class="card" style="margin-top:16px;">
+      <h2>Actividad de grupo recomendada</h2>
+      <h3>{{ plan.group_activity.title }}</h3>
+      <p><strong>Objetivo social:</strong> {{ plan.group_activity.social_goal }}</p>
+      <p><strong>Por qué encaja:</strong> {{ plan.group_activity.healthy_reason }}</p>
+      <ol>
+        {% for step in plan.group_activity.steps %}
+          <li>{{ step }}</li>
+        {% endfor %}
+      </ol>
+    </div>
+  {% endif %}
 
   {% if plan.route %}
     <div class="card" style="margin-top:16px;">
@@ -196,10 +216,6 @@
             </div>
           {% endfor %}
         </div>
-      {% endif %}
-
-      {% if plan.route.stops_note %}
-        <p style="margin-top:12px; opacity:.75;">{{ plan.route.stops_note }}</p>
       {% endif %}
     </div>
   {% endif %}
