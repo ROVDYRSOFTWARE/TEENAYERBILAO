@@ -60,6 +60,7 @@ def render_with_token(template_name: str, **context):
         response.set_cookie("tb_token", token, max_age=60 * 60 * 24 * 365)
     return response
 
+
 def public_base_url() -> str:
     env = (os.getenv("PUBLIC_BASE_URL") or "").strip().rstrip("/")
     if env:
@@ -82,7 +83,6 @@ def build_maps_url(item: dict) -> str:
     )
     if query:
         from urllib.parse import quote_plus
-
         return f"https://www.google.com/maps/search/?api=1&query={quote_plus(query)}"
 
     return ""
@@ -135,7 +135,69 @@ def place_rows():
         for row in data_store.load_places()
     ]
 
-place_sort_score
+
+def _place_sort_score(row: dict):
+    try:
+        teen_score = int(row.get("teen_score", 0) or 0)
+    except Exception:
+        teen_score = 0
+    return (-teen_score, (row.get("nombre") or "").lower())
+
+
+def build_place_sections(rows: list[dict]) -> list[dict]:
+    buckets = [
+        {
+            "key": "food",
+            "title": "Comer y merendar",
+            "subtitle": "Bubble tea, cafeterías, heladerías, pizza, burgers y planes para picar algo.",
+            "cats": {"bubble-tea", "cafeteria", "heladeria", "hamburgueseria", "pizza", "merendar", "restaurante"},
+            "rows": [],
+        },
+        {
+            "key": "activity",
+            "title": "Actividades",
+            "subtitle": "Bolera, cine, escape room, arcade, jump park, museos y planes para moverse o divertirse.",
+            "cats": {"bolera", "escape-room", "arcade", "jump-park", "cine", "museo", "actividad", "deporte"},
+            "rows": [],
+        },
+        {
+            "key": "shopping",
+            "title": "Compras",
+            "subtitle": "Tiendas de ropa, sneakers, manga, regalos, belleza y zonas para mirar cosas en grupo.",
+            "cats": {"ropa", "sneakers", "manga", "regalos", "belleza", "compras"},
+            "rows": [],
+        },
+        {
+            "key": "meetup",
+            "title": "Quedada y relax",
+            "subtitle": "Sitios para quedar, pasear, charlar o montar un plan tranquilo.",
+            "cats": {"quedada", "paseo", "parque", "visit", "visita", "nightlife"},
+            "rows": [],
+        },
+        {
+            "key": "other",
+            "title": "Otros planes",
+            "subtitle": "Opciones que no encajan del todo en los bloques anteriores pero pueden servir.",
+            "cats": set(),
+            "rows": [],
+        },
+    ]
+
+    for item in rows:
+        cat = (item.get("categoria") or "").strip().lower()
+        assigned = False
+
+        for bucket in buckets[:-1]:
+            if cat in bucket["cats"]:
+                bucket["rows"].append(item)
+                assigned = True
+                break
+
+        if not assigned:
+            buckets[-1]["rows"].append(item)
+
+    return [bucket for bucket in buckets if bucket["rows"]]
+
 
 def _today_madrid() -> date:
     return datetime.now(ZoneInfo("Europe/Madrid")).date()
@@ -366,6 +428,18 @@ def eventos():
     return render_with_token("eventos.html", title="Eventos", items=rows)
 
 
+@app.route("/lugares")
+def lugares():
+    rows = sorted(place_rows(), key=_place_sort_score)
+    sections = build_place_sections(rows)
+    return render_with_token(
+        "lugares.html",
+        title="Lugares",
+        items=rows,
+        sections=sections,
+    )
+
+
 @app.route("/evento/<event_id>")
 def evento_detalle(event_id: str):
     item = data_store.get_event(event_id)
@@ -513,6 +587,7 @@ def plan_grupo():
         plan_modes=group_planner.group_mode_cards(),
     )
 
+
 @app.route("/compartir-plan-hoy", methods=["POST"])
 def compartir_plan_hoy():
     token = current_token()
@@ -580,6 +655,7 @@ def plan_compartido(slug: str):
         shared=shared,
         plan=shared.get("plan", {}),
     )
+
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
