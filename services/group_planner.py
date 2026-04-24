@@ -5,7 +5,7 @@ import re
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from services import transit_stops
+from services import ceremony_host, transit_stops
 
 
 GROUP_ACTIVITY_TEMPLATES = [
@@ -102,7 +102,7 @@ GROUP_ACTIVITY_TEMPLATES = [
         "steps": [
             "Guardad el móvil 45 minutos.",
             "Haced preguntas rápidas para conoceros mejor.",
-            "Al final decidid si repetiríais el reto.",
+            "Al final decidid si repetiréis el reto.",
         ],
     },
 ]
@@ -503,6 +503,13 @@ def enrich_today_plan(token: str, plan: dict, events: list[dict], places: list[d
 
     route = _route_summary(principal, comida, extra)
     group_activity = _select_group_activity(today_prefs)
+    host_guide = ceremony_host.build_host_guide(
+        prefs=today_prefs,
+        principal=principal,
+        comida=comida,
+        extra=extra,
+        mode="hoy",
+    )
 
     return {
         "principal": principal,
@@ -515,6 +522,7 @@ def enrich_today_plan(token: str, plan: dict, events: list[dict], places: list[d
         },
         "route": route,
         "group_activity": group_activity,
+        "host_guide": host_guide,
     }
 
 
@@ -605,6 +613,13 @@ def build_group_plan(token: str, events: list[dict], places: list[dict], profile
 
     route = _route_summary(principal, comida, extra)
     group_activity = _select_group_activity(prefs)
+    host_guide = ceremony_host.build_host_guide(
+        prefs=prefs,
+        principal=principal,
+        comida=comida,
+        extra=extra,
+        mode="grupo",
+    )
 
     explanations = {
         "diversion": "He priorizado un plan dinámico, variado y fácil de compartir con amigos.",
@@ -622,6 +637,7 @@ def build_group_plan(token: str, events: list[dict], places: list[dict], profile
         "extra": extra,
         "route": route,
         "group_activity": group_activity,
+        "host_guide": host_guide,
         "summary": {
             "title": "Plan de grupo adolescente",
             "subtitle": explanations.get(objective, "Plan sano y social para grupo."),
