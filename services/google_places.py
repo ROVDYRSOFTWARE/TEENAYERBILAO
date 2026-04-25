@@ -100,6 +100,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
     "escape-room": {
         "restaurant",
@@ -110,6 +111,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "cafe",
         "bar",
         "pub",
+        "night_club",
     },
     "jump-park": {
         "restaurant",
@@ -120,6 +122,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "cafe",
         "bar",
         "pub",
+        "night_club",
     },
     "arcade": {
         "restaurant",
@@ -127,6 +130,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
     "bolera": {
         "restaurant",
@@ -134,6 +138,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
     "cine": {
         "restaurant",
@@ -141,6 +146,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
     "museo": {
         "restaurant",
@@ -148,6 +154,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
     "ropa": {
         "restaurant",
@@ -155,6 +162,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
     "sneakers": {
         "restaurant",
@@ -162,6 +170,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
     "manga": {
         "restaurant",
@@ -169,6 +178,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
     "regalos": {
         "restaurant",
@@ -176,6 +186,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
     "belleza": {
         "restaurant",
@@ -183,6 +194,7 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
     "compras": {
         "restaurant",
@@ -190,7 +202,19 @@ BAD_MATCH_TYPES_BY_CATEGORY = {
         "meal_delivery",
         "bar",
         "pub",
+        "night_club",
     },
+}
+
+
+# Bloqueo global para una app dirigida a adolescentes.
+# Cualquier resultado de Google con estos tipos se rechaza siempre.
+UNSAFE_GOOGLE_TYPES = {
+    "night_club",
+    "bar",
+    "pub",
+    "liquor_store",
+    "casino",
 }
 
 
@@ -302,7 +326,6 @@ def _first_distinctive_token(value: Any) -> str:
         "fundacion",
         "fundación",
         "oficial",
-        "tienda",
     }
 
     ordered_tokens = [
@@ -353,6 +376,9 @@ def _type_compatibility_score(category: str, primary_type: str) -> float:
 
     if not primary_type:
         return 0.0
+
+    if primary_type in UNSAFE_GOOGLE_TYPES:
+        return -999.0
 
     bad_types = _bad_types_for_category(category)
     if primary_type in bad_types:
@@ -428,6 +454,8 @@ def _type_compatibility_score(category: str, primary_type: str) -> float:
         "shoe_store",
         "book_store",
         "gift_shop",
+        "sportswear_store",
+        "sporting_goods_store",
     }:
         return 2.0
 
@@ -524,6 +552,14 @@ def _candidate_score(item: dict, cand: dict) -> tuple[float, dict]:
     cand_addr = _clean(cand.get("formattedAddress", ""))
     cand_type = _clean(cand.get("primaryType", ""))
 
+    if cand_type in UNSAFE_GOOGLE_TYPES:
+        return -999.0, {
+            "name_score": 0.0,
+            "token_score": 0.0,
+            "addr_score": 0.0,
+            "type_score": -999.0,
+        }
+
     if _is_closed_permanently(cand):
         return -999.0, {
             "name_score": 0.0,
@@ -580,6 +616,9 @@ def choose_best_candidate(item: dict, candidates: list[dict]) -> dict | None:
 
     best_name = _clean((best.get("displayName") or {}).get("text", ""))
     best_type = _clean(best.get("primaryType", ""))
+
+    if best_type in UNSAFE_GOOGLE_TYPES:
+        return None
 
     type_score = _type_compatibility_score(wanted_category, best_type)
     best_similarity = _similarity(wanted_name, best_name)
@@ -688,6 +727,11 @@ def enrich_item_with_google(item: dict) -> dict:
     business_status = _clean(details.get("businessStatus", ""))
     website_uri = _clean(details.get("websiteUri", ""))
     phone = _clean(details.get("nationalPhoneNumber", ""))
+
+    if primary_type in UNSAFE_GOOGLE_TYPES:
+        row["google_enriched"] = False
+        row["google_match_status"] = "unsafe_type"
+        return row
 
     location = details.get("location", {}) or {}
     lat = location.get("latitude")
