@@ -46,7 +46,7 @@ DETAILS_FIELDS = ",".join(
 CATEGORY_TYPE_HINTS = {
     "bubble-tea": {"bubble_tea_shop", "tea_house", "cafe"},
     "cafeteria": {"cafe", "coffee_shop"},
-    "heladeria": {"ice_cream_shop", "dessert_shop", "cafe"},
+    "heladeria": {"ice_cream_shop", "dessert_shop", "cafe", "deli", "candy_store", "store"},
     "hamburgueseria": {"hamburger_restaurant", "fast_food_restaurant", "restaurant"},
     "pizza": {"pizza_restaurant", "restaurant"},
     "restaurante": {"restaurant", "meal_takeaway", "meal_delivery"},
@@ -59,11 +59,114 @@ CATEGORY_TYPE_HINTS = {
     "ropa": {"clothing_store", "store"},
     "sneakers": {"shoe_store", "sporting_goods_store", "store"},
     "manga": {"book_store", "comic_book_store", "store"},
-    "regalos": {"gift_shop", "store"},
+    "regalos": {"gift_shop", "store", "candy_store"},
     "belleza": {"cosmetics_store", "beauty_salon", "store"},
     "compras": {"shopping_mall", "department_store", "store"},
     "actividad": {"amusement_center", "sports_complex", "museum", "movie_theater"},
     "nightlife": {"bar", "pub", "night_club"},
+}
+
+
+BAD_MATCH_TYPES_BY_CATEGORY = {
+    "bubble-tea": {
+        "restaurant",
+        "japanese_restaurant",
+        "sushi_restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
+    "escape-room": {
+        "restaurant",
+        "japanese_restaurant",
+        "sushi_restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "cafe",
+        "bar",
+        "pub",
+    },
+    "jump-park": {
+        "restaurant",
+        "japanese_restaurant",
+        "sushi_restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "cafe",
+        "bar",
+        "pub",
+    },
+    "arcade": {
+        "restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
+    "bolera": {
+        "restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
+    "cine": {
+        "restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
+    "museo": {
+        "restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
+    "ropa": {
+        "restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
+    "sneakers": {
+        "restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
+    "manga": {
+        "restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
+    "regalos": {
+        "restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
+    "belleza": {
+        "restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
+    "compras": {
+        "restaurant",
+        "meal_takeaway",
+        "meal_delivery",
+        "bar",
+        "pub",
+    },
 }
 
 
@@ -82,22 +185,66 @@ def _headers(field_mask: str) -> dict[str, str]:
     }
 
 
-def _clean(value: str) -> str:
+def _clean(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
-def _norm(value: str) -> str:
+def _norm(value: Any) -> str:
     value = _clean(value).lower()
-    value = value.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+    value = (
+        value.replace("á", "a")
+        .replace("é", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ú", "u")
+        .replace("ü", "u")
+        .replace("ñ", "n")
+    )
     value = re.sub(r"[^a-z0-9\s]", " ", value)
     value = re.sub(r"\s+", " ", value).strip()
     return value
 
 
-def _similarity(a: str, b: str) -> float:
-    if not a or not b:
+def _tokens(value: Any) -> set[str]:
+    ignored = {
+        "bilbao",
+        "bizkaia",
+        "vizcaya",
+        "kalea",
+        "calle",
+        "avenida",
+        "avda",
+        "plaza",
+        "local",
+        "bajo",
+        "the",
+        "and",
+        "de",
+        "del",
+        "la",
+        "el",
+        "los",
+        "las",
+        "y",
+        "en",
+    }
+    return {x for x in _norm(value).split() if len(x) >= 3 and x not in ignored}
+
+
+def _similarity(a: Any, b: Any) -> float:
+    na = _norm(a)
+    nb = _norm(b)
+    if not na or not nb:
         return 0.0
-    return difflib.SequenceMatcher(None, _norm(a), _norm(b)).ratio()
+    return difflib.SequenceMatcher(None, na, nb).ratio()
+
+
+def _token_overlap(a: Any, b: Any) -> float:
+    ta = _tokens(a)
+    tb = _tokens(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / max(1, len(ta))
 
 
 def _location_bias() -> dict[str, Any]:
@@ -113,44 +260,104 @@ def _category_hints(category: str) -> set[str]:
     return CATEGORY_TYPE_HINTS.get(_clean(category).lower(), set())
 
 
+def _bad_types_for_category(category: str) -> set[str]:
+    return BAD_MATCH_TYPES_BY_CATEGORY.get(_clean(category).lower(), set())
+
+
 def _type_compatibility_score(category: str, primary_type: str) -> float:
     category = _clean(category).lower()
     primary_type = _clean(primary_type).lower()
-    hints = _category_hints(category)
 
     if not primary_type:
         return 0.0
 
-    if primary_type in hints:
-        return 3.0
+    bad_types = _bad_types_for_category(category)
+    if primary_type in bad_types:
+        return -8.0
 
-    if category == "bubble-tea" and primary_type == "restaurant":
-        return -3.0
-
-    if category == "escape-room" and primary_type == "restaurant":
-        return -4.0
-
-    if category == "jump-park" and primary_type == "restaurant":
-        return -4.0
-
-    if category in {"ropa", "sneakers", "manga", "regalos", "belleza", "compras"} and "restaurant" in primary_type:
-        return -4.0
-
-    if category in {"restaurante", "hamburgueseria", "pizza"} and "museum" in primary_type:
-        return -4.0
-
-    if category == "museo" and "restaurant" in primary_type:
-        return -4.0
-
-    if category in {"actividad", "escape-room", "jump-park", "arcade", "bolera"} and primary_type in {
-        "amusement_center", "sports_complex", "movie_theater", "museum"
+    if "restaurant" in primary_type and category in {
+        "bubble-tea",
+        "cafeteria",
+        "heladeria",
+        "escape-room",
+        "jump-park",
+        "arcade",
+        "bolera",
+        "cine",
+        "museo",
+        "ropa",
+        "sneakers",
+        "manga",
+        "regalos",
+        "belleza",
+        "compras",
     }:
-        return 2.0
+        return -6.0
+
+    hints = _category_hints(category)
+    if primary_type in hints:
+        return 4.0
+
+    if category == "bubble-tea" and primary_type in {"cafe", "tea_house", "bubble_tea_shop"}:
+        return 5.0
+
+    if category == "heladeria" and primary_type in {
+        "ice_cream_shop",
+        "dessert_shop",
+        "deli",
+        "candy_store",
+        "store",
+    }:
+        return 3.0
 
     if category in {"cafeteria", "heladeria"} and primary_type in {"cafe", "dessert_shop", "store"}:
         return 2.0
 
+    if category in {"actividad", "escape-room", "jump-park", "arcade", "bolera"} and primary_type in {
+        "amusement_center",
+        "sports_complex",
+        "movie_theater",
+        "museum",
+        "bowling_alley",
+    }:
+        return 3.0
+
+    if category in {"ropa", "sneakers", "manga", "regalos", "belleza", "compras"} and primary_type in {
+        "store",
+        "shopping_mall",
+        "department_store",
+    }:
+        return 2.0
+
     return 0.0
+
+
+def _is_closed_permanently(place: dict) -> bool:
+    return _clean(place.get("businessStatus", "")).upper() == "CLOSED_PERMANENTLY"
+
+
+def _has_address_signal(item: dict) -> bool:
+    address = _clean(item.get("direccion", ""))
+    if not address:
+        return False
+    low = address.lower()
+    if low in {"bilbao", "bizkaia", "vizcaya", "centro de bilbao"}:
+        return False
+    return bool(re.search(r"\d", low)) or any(
+        x in low
+        for x in [
+            "kalea",
+            "calle",
+            "plaza",
+            "avenida",
+            "avda",
+            "alameda",
+            "camino",
+            "etorbidea",
+            "etorb.",
+            "480",
+        ]
+    )
 
 
 def build_text_query(item: dict) -> str:
@@ -164,7 +371,7 @@ def build_text_query(item: dict) -> str:
     if categoria and categoria.lower() not in nombre.lower():
         pieces.append(categoria)
 
-    if direccion:
+    if direccion and _has_address_signal(item):
         pieces.append(direccion)
     elif barrio:
         pieces.append(barrio)
@@ -180,6 +387,7 @@ def search_text(item: dict, max_results: int = 5) -> list[dict]:
         "locationBias": _location_bias(),
         "pageSize": max_results,
     }
+
     resp = requests.post(
         PLACES_TEXT_SEARCH_URL,
         headers=_headers(TEXT_SEARCH_FIELDS),
@@ -202,58 +410,123 @@ def get_place_details(place_id: str) -> dict:
     return resp.json()
 
 
-def choose_best_candidate(item: dict, candidates: list[dict]) -> dict | None:
-    if not candidates:
-        return None
-
+def _candidate_score(item: dict, cand: dict) -> tuple[float, dict]:
     wanted_name = _clean(item.get("nombre", ""))
     wanted_address = _clean(item.get("direccion", ""))
     wanted_barrio = _clean(item.get("barrio", ""))
     wanted_category = _clean(item.get("categoria", ""))
 
-    ranked: list[tuple[float, dict]] = []
+    cand_name = _clean((cand.get("displayName") or {}).get("text", ""))
+    cand_addr = _clean(cand.get("formattedAddress", ""))
+    cand_type = _clean(cand.get("primaryType", ""))
+
+    if _is_closed_permanently(cand):
+        return -999.0, {
+            "name_score": 0.0,
+            "token_score": 0.0,
+            "addr_score": 0.0,
+            "type_score": -999.0,
+        }
+
+    name_score = _similarity(wanted_name, cand_name)
+    token_score = _token_overlap(wanted_name, cand_name)
+    addr_score = _similarity(wanted_address, cand_addr) if wanted_address else 0.0
+    type_score = _type_compatibility_score(wanted_category, cand_type)
+
+    score = 0.0
+    score += name_score * 10.0
+    score += token_score * 5.0
+    score += addr_score * 3.0
+    score += type_score
+
+    if wanted_barrio and wanted_barrio.lower() in cand_addr.lower():
+        score += 0.8
+
+    if "bilbao" in cand_addr.lower():
+        score += 0.5
+
+    return score, {
+        "name_score": name_score,
+        "token_score": token_score,
+        "addr_score": addr_score,
+        "type_score": type_score,
+    }
+
+
+def choose_best_candidate(item: dict, candidates: list[dict]) -> dict | None:
+    if not candidates:
+        return None
+
+    wanted_name = _clean(item.get("nombre", ""))
+    wanted_category = _clean(item.get("categoria", ""))
+
+    ranked: list[tuple[float, dict, dict]] = []
 
     for cand in candidates:
-        cand_name = _clean((cand.get("displayName") or {}).get("text", ""))
-        cand_addr = _clean(cand.get("formattedAddress", ""))
-        cand_type = _clean(cand.get("primaryType", ""))
-        cand_status = _clean(cand.get("businessStatus", ""))
-
-        if cand_status == "CLOSED_PERMANENTLY":
+        score, debug = _candidate_score(item, cand)
+        if score <= -100:
             continue
-
-        name_score = _similarity(wanted_name, cand_name)
-        addr_score = _similarity(wanted_address, cand_addr) if wanted_address else 0.0
-        type_score = _type_compatibility_score(wanted_category, cand_type)
-
-        score = 0.0
-        score += name_score * 10.0
-        score += addr_score * 4.0
-        score += type_score
-
-        if wanted_barrio and wanted_barrio.lower() in cand_addr.lower():
-            score += 1.0
-        if "Bilbao" in cand_addr:
-            score += 0.5
-
-        ranked.append((score, cand))
+        ranked.append((score, cand, debug))
 
     if not ranked:
         return None
 
     ranked.sort(key=lambda x: x[0], reverse=True)
-    best_score, best = ranked[0]
+    best_score, best, debug = ranked[0]
 
     best_name = _clean((best.get("displayName") or {}).get("text", ""))
     best_type = _clean(best.get("primaryType", ""))
+    type_score = _type_compatibility_score(wanted_category, best_type)
 
-    if _similarity(wanted_name, best_name) < 0.55:
+    best_similarity = _similarity(wanted_name, best_name)
+    best_token_overlap = _token_overlap(wanted_name, best_name)
+
+    # Regla dura: si la categoría es muy específica, no aceptar nombres sin coincidencia.
+    strict_categories = {
+        "bubble-tea",
+        "escape-room",
+        "jump-park",
+        "arcade",
+        "bolera",
+        "cine",
+        "museo",
+        "ropa",
+        "sneakers",
+        "manga",
+        "regalos",
+        "belleza",
+        "compras",
+    }
+
+    if wanted_category in strict_categories:
+        if best_similarity < 0.68 and best_token_overlap < 0.50:
+            return None
+    else:
+        if best_similarity < 0.62 and best_token_overlap < 0.40:
+            return None
+
+    # Regla dura: si el tipo Google contradice la categoría interna, rechazar.
+    if type_score <= -5.0:
         return None
 
-    if _type_compatibility_score(wanted_category, best_type) < -1.0:
-        return None
+    # Regla dura específica para bubble tea: evitar restaurantes genéricos.
+    if wanted_category == "bubble-tea":
+        if best_type not in {"bubble_tea_shop", "tea_house", "cafe"}:
+            return None
+        if best_token_overlap < 0.50 and "bubble" not in _norm(best_name) and "tea" not in _norm(best_name):
+            return None
 
-    if best_score < 5.5:
+    # Regla dura para escape-room.
+    if wanted_category == "escape-room":
+        if best_type not in {"escape_room_center", "amusement_center"}:
+            return None
+
+    # Regla dura para jump park.
+    if wanted_category == "jump-park":
+        if best_type not in {"amusement_center", "sports_complex"}:
+            return None
+
+    if best_score < 7.0:
         return None
 
     return best
@@ -264,6 +537,7 @@ def enrich_item_with_google(item: dict) -> dict:
 
     candidates = search_text(row)
     best = choose_best_candidate(row, candidates)
+
     if not best:
         row["google_enriched"] = False
         row["google_match_status"] = "no_match"
@@ -277,7 +551,7 @@ def enrich_item_with_google(item: dict) -> dict:
 
     details = get_place_details(place_id)
 
-    if _clean(details.get("businessStatus", "")) == "CLOSED_PERMANENTLY":
+    if _is_closed_permanently(details):
         row["google_enriched"] = False
         row["google_match_status"] = "closed_permanently"
         return row
@@ -328,7 +602,8 @@ def enrich_item_with_google(item: dict) -> dict:
     if website_uri and not _clean(row.get("url", "")):
         row["url"] = website_uri
 
-    if not _clean(row.get("ubicacion", "")) or _clean(row.get("ubicacion", "")).lower() in {"bilbao", "bizkaia"}:
+    ubicacion_actual = _clean(row.get("ubicacion", ""))
+    if not ubicacion_actual or ubicacion_actual.lower() in {"bilbao", "bizkaia", "vizcaya"}:
         row["ubicacion"] = display_name or row.get("ubicacion", "")
 
     return row
