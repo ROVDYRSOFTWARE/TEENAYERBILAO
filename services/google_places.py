@@ -287,13 +287,31 @@ def _first_distinctive_token(value: Any) -> str:
         "delicados",
         "boutique",
         "clothing",
+        "denda",
+        "atelier",
+        "gallery",
+        "galeria",
+        "galería",
+        "sport",
+        "sports",
+        "club",
+        "basket",
+        "futbol",
+        "fútbol",
+        "fundazioa",
+        "fundacion",
+        "fundación",
+        "oficial",
+        "tienda",
     }
 
-    for token in _tokens(value):
-        if token not in generic and not token.isdigit():
-            return token
+    ordered_tokens = [
+        token
+        for token in _norm(value).split()
+        if len(token) >= 3 and token not in generic and not token.isdigit()
+    ]
 
-    return ""
+    return ordered_tokens[0] if ordered_tokens else ""
 
 
 def _similarity(a: Any, b: Any) -> float:
