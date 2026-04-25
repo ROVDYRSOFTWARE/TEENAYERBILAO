@@ -1,127 +1,260 @@
 {% extends 'base.html' %}
-{% block title %}{{ title or 'Lugares' }}{% endblock %}
+{% block title %}Lugares{% endblock %}
 
 {% block content %}
-<div class="card" style="margin-bottom:16px;">
-  <h1>{{ title or 'Lugares' }}</h1>
-  <p>Planes y sitios pensados para adolescentes de Bilbao y alrededores.</p>
+<div class="card hero-card">
+  <div class="hero-kicker">📍 Explora Bilbao</div>
+  <h1>Lugares con rollo para descubrir</h1>
+  <p>
+    Sitios para comer, merendar, comprar, quedar o hacer algo distinto.
+    Ahora con direcciones y datos mejorados con Google cuando están disponibles.
+  </p>
+
+  <div class="tag-row" style="margin-top:10px;">
+    <span class="pill">🍔 Comer</span>
+    <span class="pill">☕ Merendar</span>
+    <span class="pill">🛍️ Compras</span>
+    <span class="pill">🎳 Actividades</span>
+    <span class="pill">🎬 Cine</span>
+    <span class="pill">📍 Mapa</span>
+  </div>
+
+  <div class="hero-actions">
+    <a class="btn" href="{{ url_for('plan_hoy') }}">Crear plan de hoy</a>
+    <a class="btn secondary" href="{{ url_for('plan_grupo') }}">Plan en grupo</a>
+    <a class="btn ghost" href="{{ url_for('recomendado') }}">Ver recomendado</a>
+  </div>
 </div>
 
-{% set sections_safe = sections if sections is defined and sections else [] %}
-{% set items_safe = items if items is defined and items else [] %}
+<div class="card">
+  <div class="section-title">
+    <div>
+      <h2>Filtrar lugares</h2>
+      <p>Busca por nombre, zona, categoría o tipo de sitio.</p>
+    </div>
+  </div>
 
-{% if sections_safe %}
-  {% for section in sections_safe %}
-    <div class="card" style="margin-bottom:16px;">
-      <h2 style="margin-bottom:6px;">{{ section.title or 'Bloque' }}</h2>
-      {% if section.subtitle %}
-        <p style="opacity:.8; margin-bottom:0;">{{ section.subtitle }}</p>
-      {% endif %}
+  <div class="form-grid" style="margin-top:14px;">
+    <div>
+      <label>Buscar</label>
+      <input id="placeSearch" type="search" placeholder="Ej. helado, cine, ropa, Casco Viejo...">
     </div>
 
-    <div class="grid" style="margin-bottom:22px;">
-      {% for item in section.rows %}
-        <div class="card">
-          <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
-            {% if item.categoria %}<span class="pill">{{ item.categoria }}</span>{% endif %}
-            {% if item.barrio %}<span class="pill">{{ item.barrio }}</span>{% endif %}
-            {% if item.franja %}<span class="pill">{{ item.franja }}</span>{% endif %}
-            {% if item.teen_score is defined and item.teen_score %}
-              {% if item.teen_score|int >= 9 %}
-                <span class="pill">top adolescente</span>
-              {% endif %}
-            {% endif %}
-          </div>
-
-          <h3 style="margin-bottom:8px;">{{ item.nombre or 'Lugar' }}</h3>
-
-          {% if item.ubicacion %}
-            <p><strong>Lugar:</strong> {{ item.ubicacion }}</p>
-          {% endif %}
-
-          {% if item.direccion %}
-            <p><strong>Dirección:</strong> {{ item.direccion }}</p>
-          {% endif %}
-
-          {% if item.horario %}
-            <p><strong>Horario:</strong> {{ item.horario }}</p>
-          {% endif %}
-
-          {% if item.descripcion %}
-            <p>{{ item.descripcion[:180] }}{% if item.descripcion|length > 180 %}...{% endif %}</p>
-          {% endif %}
-
-          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-            {% if item.id %}
-              <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver detalle</a>
-            {% endif %}
-
-            {% if item.url %}
-              <a class="btn secondary" href="{{ item.url }}" target="_blank" rel="noopener">Web</a>
-            {% endif %}
-
-            {% if item._maps_url %}
-              <a class="btn secondary" href="{{ item._maps_url }}" target="_blank" rel="noopener">Mapa</a>
-            {% elif item.maps_url %}
-              <a class="btn secondary" href="{{ item.maps_url }}" target="_blank" rel="noopener">Mapa</a>
-            {% endif %}
-          </div>
-        </div>
-      {% endfor %}
+    <div>
+      <label>Tipo de plan</label>
+      <select id="placeCategory">
+        <option value="">Todos</option>
+        <option value="comer">🍔 Comer / merendar</option>
+        <option value="compras">🛍️ Compras</option>
+        <option value="actividad">🎳 Actividad</option>
+        <option value="cultura">🎨 Cultura / cine</option>
+        <option value="belleza">✨ Belleza</option>
+      </select>
     </div>
-  {% endfor %}
+  </div>
 
-{% elif items_safe %}
-  <div class="grid">
-    {% for item in items_safe %}
-      <div class="card">
-        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
-          {% if item.categoria %}<span class="pill">{{ item.categoria }}</span>{% endif %}
-          {% if item.barrio %}<span class="pill">{{ item.barrio }}</span>{% endif %}
-          {% if item.franja %}<span class="pill">{{ item.franja }}</span>{% endif %}
+  <div class="tag-row" style="margin-top:14px;">
+    <span class="pill"><strong id="visibleCount">{{ items|length }}</strong> visibles</span>
+    <span class="pill">{{ items|length }} lugares seguros</span>
+  </div>
+</div>
+
+{% if items %}
+  <div class="section-title" style="margin-top:8px;">
+    <div>
+      <h2>Todos los lugares</h2>
+      <p>Tarjetas rápidas para decidir dónde ir.</p>
+    </div>
+  </div>
+
+  <div class="grid" id="placesGrid">
+    {% for item in items %}
+      {% set name = item.google_display_name or item.nombre %}
+      {% set address = item.google_formatted_address or item.direccion %}
+      {% set maps = item.google_maps_uri or item._maps_url or item.maps_url %}
+      {% set hours = item.google_opening_hours_text or item.horario %}
+      {% set website = item.google_website_uri or item.url %}
+      {% set phone = item.google_phone %}
+      {% set rating = item.google_rating %}
+      {% set rating_count = item.google_user_rating_count %}
+      {% set gtype = item.google_primary_type or item.categoria %}
+      {% set search_blob = (item.nombre ~ ' ' ~ item.google_display_name ~ ' ' ~ item.categoria ~ ' ' ~ item.barrio ~ ' ' ~ item.direccion ~ ' ' ~ item.google_formatted_address ~ ' ' ~ item.google_primary_type ~ ' ' ~ item.descripcion)|lower %}
+
+      <div
+        class="card feed-card place-card"
+        data-search="{{ search_blob|e }}"
+        data-category="{{ item.categoria|lower|e }}"
+        data-type="{{ gtype|lower|e }}"
+      >
+        <div class="meta">
+          {% if item.categoria %}
+            <span class="pill">{{ item.categoria }}</span>
+          {% endif %}
+
+          {% if item.barrio %}
+            <span class="pill">📍 {{ item.barrio }}</span>
+          {% endif %}
+
+          {% if item.google_enriched %}
+            <span class="pill">Google</span>
+          {% endif %}
+
+          {% if rating %}
+            <span class="pill">⭐ {{ rating }}{% if rating_count %} · {{ rating_count }}{% endif %}</span>
+          {% endif %}
         </div>
 
-        <h3 style="margin-bottom:8px;">{{ item.nombre or 'Lugar' }}</h3>
+        <h3 style="font-size:1.45rem; margin-bottom:8px;">
+          {{ name or 'Lugar recomendado' }}
+        </h3>
 
-        {% if item.ubicacion %}
-          <p><strong>Lugar:</strong> {{ item.ubicacion }}</p>
+        {% if item.google_display_name and item.google_display_name != item.nombre %}
+          <p><strong>Nombre original:</strong> {{ item.nombre }}</p>
         {% endif %}
 
-        {% if item.direccion %}
-          <p><strong>Dirección:</strong> {{ item.direccion }}</p>
+        {% if gtype %}
+          <p><strong>Tipo:</strong> {{ gtype }}</p>
         {% endif %}
 
-        {% if item.horario %}
-          <p><strong>Horario:</strong> {{ item.horario }}</p>
+        {% if address %}
+          <p><strong>Dirección:</strong> {{ address }}</p>
+        {% elif item.ubicacion %}
+          <p><strong>Ubicación:</strong> {{ item.ubicacion }}</p>
+        {% endif %}
+
+        {% if hours %}
+          <p>
+            <strong>Horario:</strong>
+            {{ hours[:190] }}{% if hours|length > 190 %}...{% endif %}
+          </p>
+        {% endif %}
+
+        {% if phone %}
+          <p><strong>Teléfono:</strong> {{ phone }}</p>
         {% endif %}
 
         {% if item.descripcion %}
-          <p>{{ item.descripcion[:180] }}{% if item.descripcion|length > 180 %}...{% endif %}</p>
+          <p>{{ item.descripcion[:170] }}{% if item.descripcion|length > 170 %}...{% endif %}</p>
         {% endif %}
 
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-          {% if item.id %}
-            <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver detalle</a>
+        <div class="actions">
+          <a class="btn" href="{{ url_for('lugar_detalle', place_id=item.id) }}">Ver sitio</a>
+
+          {% if maps %}
+            <a class="btn secondary" href="{{ maps }}" target="_blank" rel="noopener">Mapa</a>
           {% endif %}
 
-          {% if item.url %}
-            <a class="btn secondary" href="{{ item.url }}" target="_blank" rel="noopener">Web</a>
+          {% if website %}
+            <a class="btn ghost" href="{{ website }}" target="_blank" rel="noopener">Web</a>
           {% endif %}
+        </div>
 
-          {% if item._maps_url %}
-            <a class="btn secondary" href="{{ item._maps_url }}" target="_blank" rel="noopener">Mapa</a>
-          {% elif item.maps_url %}
-            <a class="btn secondary" href="{{ item.maps_url }}" target="_blank" rel="noopener">Mapa</a>
-          {% endif %}
+        <div class="actions" style="margin-top:10px;">
+          <a class="btn secondary" href="{{ url_for('accion', entity_type='lugar', entity_id=item.id, action='like') }}">❤️ Me gusta</a>
+          <a class="btn ghost" href="{{ url_for('accion', entity_type='lugar', entity_id=item.id, action='dislike') }}">👎 No me interesa</a>
         </div>
       </div>
     {% endfor %}
   </div>
-
 {% else %}
-  <div class="card">
-    <h3>No hay lugares disponibles</h3>
-    <p>Ahora mismo no hay lugares cargados en la base de datos.</p>
+  <div class="card center">
+    <h2>No hay lugares disponibles</h2>
+    <p>Ahora mismo no hay sitios cargados para mostrar.</p>
+
+    <div class="hero-actions" style="justify-content:center;">
+      <a class="btn" href="{{ url_for('plan_hoy') }}">Ver plan de hoy</a>
+      <a class="btn secondary" href="{{ url_for('plan_grupo') }}">Plan en grupo</a>
+    </div>
   </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const searchInput = document.getElementById("placeSearch");
+    const categorySelect = document.getElementById("placeCategory");
+    const cards = Array.from(document.querySelectorAll(".place-card"));
+    const visibleCount = document.getElementById("visibleCount");
+
+    function normalize(value) {
+      return (value || "")
+        .toString()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function categoryMatch(card, filter) {
+      if (!filter) return true;
+
+      const data = normalize(
+        [
+          card.dataset.category,
+          card.dataset.type,
+          card.dataset.search
+        ].join(" ")
+      );
+
+      if (filter === "comer") {
+        return [
+          "restaurante", "restaurant", "cafe", "cafeteria", "coffee",
+          "heladeria", "ice_cream", "bakery", "pizza", "hamburger",
+          "fast_food", "dessert", "pasteleria"
+        ].some(x => data.includes(x));
+      }
+
+      if (filter === "compras") {
+        return [
+          "ropa", "clothing", "store", "shoe", "sneaker", "shopping",
+          "gift", "book", "manga", "jewelry", "cosmetics"
+        ].some(x => data.includes(x));
+      }
+
+      if (filter === "actividad") {
+        return [
+          "actividad", "amusement", "sports", "escape", "bowling",
+          "jump", "arcade", "complex"
+        ].some(x => data.includes(x));
+      }
+
+      if (filter === "cultura") {
+        return [
+          "museo", "museum", "movie", "cinema", "theater", "teatro",
+          "cultural", "gallery", "galeria"
+        ].some(x => data.includes(x));
+      }
+
+      if (filter === "belleza") {
+        return [
+          "belleza", "beauty", "salon", "cosmetics", "nails",
+          "estetica"
+        ].some(x => data.includes(x));
+      }
+
+      return true;
+    }
+
+    function applyFilters() {
+      const q = normalize(searchInput ? searchInput.value : "");
+      const cat = categorySelect ? categorySelect.value : "";
+      let visible = 0;
+
+      cards.forEach(card => {
+        const text = normalize(card.dataset.search);
+        const show = (!q || text.includes(q)) && categoryMatch(card, cat);
+
+        card.style.display = show ? "" : "none";
+        if (show) visible += 1;
+      });
+
+      if (visibleCount) visibleCount.textContent = visible;
+    }
+
+    if (searchInput) searchInput.addEventListener("input", applyFilters);
+    if (categorySelect) categorySelect.addEventListener("change", applyFilters);
+
+    applyFilters();
+  })();
+</script>
 {% endblock %}
