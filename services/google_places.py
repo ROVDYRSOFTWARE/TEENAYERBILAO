@@ -43,6 +43,30 @@ DETAILS_FIELDS = ",".join(
 )
 
 
+CATEGORY_TYPE_HINTS = {
+    "bubble-tea": {"bubble_tea_shop", "tea_house", "cafe"},
+    "cafeteria": {"cafe", "coffee_shop"},
+    "heladeria": {"ice_cream_shop", "dessert_shop", "cafe"},
+    "hamburgueseria": {"hamburger_restaurant", "fast_food_restaurant", "restaurant"},
+    "pizza": {"pizza_restaurant", "restaurant"},
+    "restaurante": {"restaurant", "meal_takeaway", "meal_delivery"},
+    "escape-room": {"escape_room_center", "amusement_center"},
+    "jump-park": {"amusement_center", "sports_complex"},
+    "arcade": {"video_arcade", "amusement_center"},
+    "bolera": {"bowling_alley", "amusement_center"},
+    "cine": {"movie_theater"},
+    "museo": {"museum", "art_museum"},
+    "ropa": {"clothing_store", "store"},
+    "sneakers": {"shoe_store", "sporting_goods_store", "store"},
+    "manga": {"book_store", "comic_book_store", "store"},
+    "regalos": {"gift_shop", "store"},
+    "belleza": {"cosmetics_store", "beauty_salon", "store"},
+    "compras": {"shopping_mall", "department_store", "store"},
+    "actividad": {"amusement_center", "sports_complex", "museum", "movie_theater"},
+    "nightlife": {"bar", "pub", "night_club"},
+}
+
+
 def _api_key() -> str:
     key = (os.getenv("GOOGLE_MAPS_API_KEY") or "").strip()
     if not key:
@@ -80,9 +104,53 @@ def _location_bias() -> dict[str, Any]:
     return {
         "circle": {
             "center": {"latitude": 43.2630, "longitude": -2.9350},
-            "radius": 7000.0,
+            "radius": 12000.0,
         }
     }
+
+
+def _category_hints(category: str) -> set[str]:
+    return CATEGORY_TYPE_HINTS.get(_clean(category).lower(), set())
+
+
+def _type_compatibility_score(category: str, primary_type: str) -> float:
+    category = _clean(category).lower()
+    primary_type = _clean(primary_type).lower()
+    hints = _category_hints(category)
+
+    if not primary_type:
+        return 0.0
+
+    if primary_type in hints:
+        return 3.0
+
+    if category == "bubble-tea" and primary_type == "restaurant":
+        return -3.0
+
+    if category == "escape-room" and primary_type == "restaurant":
+        return -4.0
+
+    if category == "jump-park" and primary_type == "restaurant":
+        return -4.0
+
+    if category in {"ropa", "sneakers", "manga", "regalos", "belleza", "compras"} and "restaurant" in primary_type:
+        return -4.0
+
+    if category in {"restaurante", "hamburgueseria", "pizza"} and "museum" in primary_type:
+        return -4.0
+
+    if category == "museo" and "restaurant" in primary_type:
+        return -4.0
+
+    if category in {"actividad", "escape-room", "jump-park", "arcade", "bolera"} and primary_type in {
+        "amusement_center", "sports_complex", "movie_theater", "museum"
+    }:
+        return 2.0
+
+    if category in {"cafeteria", "heladeria"} and primary_type in {"cafe", "dessert_shop", "store"}:
+        return 2.0
+
+    return 0.0
 
 
 def build_text_query(item: dict) -> str:
@@ -93,7 +161,7 @@ def build_text_query(item: dict) -> str:
 
     pieces = [nombre]
 
-    if categoria and categoria not in nombre.lower():
+    if categoria and categoria.lower() not in nombre.lower():
         pieces.append(categoria)
 
     if direccion:
@@ -141,31 +209,51 @@ def choose_best_candidate(item: dict, candidates: list[dict]) -> dict | None:
     wanted_name = _clean(item.get("nombre", ""))
     wanted_address = _clean(item.get("direccion", ""))
     wanted_barrio = _clean(item.get("barrio", ""))
+    wanted_category = _clean(item.get("categoria", ""))
 
     ranked: list[tuple[float, dict]] = []
 
     for cand in candidates:
         cand_name = _clean((cand.get("displayName") or {}).get("text", ""))
         cand_addr = _clean(cand.get("formattedAddress", ""))
+        cand_type = _clean(cand.get("primaryType", ""))
+        cand_status = _clean(cand.get("businessStatus", ""))
+
+        if cand_status == "CLOSED_PERMANENTLY":
+            continue
+
+        name_score = _similarity(wanted_name, cand_name)
+        addr_score = _similarity(wanted_address, cand_addr) if wanted_address else 0.0
+        type_score = _type_compatibility_score(wanted_category, cand_type)
 
         score = 0.0
-        score += _similarity(wanted_name, cand_name) * 8.0
-
-        if wanted_address:
-            score += _similarity(wanted_address, cand_addr) * 4.0
+        score += name_score * 10.0
+        score += addr_score * 4.0
+        score += type_score
 
         if wanted_barrio and wanted_barrio.lower() in cand_addr.lower():
-            score += 1.5
-
-        if "Bilbao" in cand_addr:
             score += 1.0
+        if "Bilbao" in cand_addr:
+            score += 0.5
 
         ranked.append((score, cand))
 
-    ranked.sort(key=lambda x: x[0], reverse=True)
+    if not ranked:
+        return None
 
+    ranked.sort(key=lambda x: x[0], reverse=True)
     best_score, best = ranked[0]
-    if best_score < 3.0:
+
+    best_name = _clean((best.get("displayName") or {}).get("text", ""))
+    best_type = _clean(best.get("primaryType", ""))
+
+    if _similarity(wanted_name, best_name) < 0.55:
+        return None
+
+    if _type_compatibility_score(wanted_category, best_type) < -1.0:
+        return None
+
+    if best_score < 5.5:
         return None
 
     return best
@@ -188,6 +276,11 @@ def enrich_item_with_google(item: dict) -> dict:
         return row
 
     details = get_place_details(place_id)
+
+    if _clean(details.get("businessStatus", "")) == "CLOSED_PERMANENTLY":
+        row["google_enriched"] = False
+        row["google_match_status"] = "closed_permanently"
+        return row
 
     display_name = _clean((details.get("displayName") or {}).get("text", ""))
     formatted_address = _clean(details.get("formattedAddress", ""))
