@@ -263,6 +263,39 @@ def _number_tokens(value: Any) -> set[str]:
     return set(re.findall(r"\d+", _norm(value)))
 
 
+def _first_distinctive_token(value: Any) -> str:
+    generic = {
+        "moda",
+        "infantil",
+        "complementos",
+        "ropa",
+        "tienda",
+        "zapatos",
+        "calzado",
+        "fashion",
+        "store",
+        "shop",
+        "woman",
+        "women",
+        "men",
+        "kids",
+        "actual",
+        "tallas",
+        "grandes",
+        "pequenas",
+        "pequeñas",
+        "delicados",
+        "boutique",
+        "clothing",
+    }
+
+    for token in _tokens(value):
+        if token not in generic and not token.isdigit():
+            return token
+
+    return ""
+
+
 def _similarity(a: Any, b: Any) -> float:
     na = _norm(a)
     nb = _norm(b)
@@ -373,6 +406,7 @@ def _type_compatibility_score(category: str, primary_type: str) -> float:
         "clothing_store",
         "womens_clothing_store",
         "mens_clothing_store",
+        "childrens_clothing_store",
         "shoe_store",
         "book_store",
         "gift_shop",
@@ -541,6 +575,12 @@ def choose_best_candidate(item: dict, candidates: list[dict]) -> dict | None:
 
     wanted_tokens = _tokens(wanted_name)
     best_tokens = _tokens(best_name)
+
+    first_distinctive = _first_distinctive_token(wanted_name)
+    if first_distinctive:
+        best_norm = _norm(best_name)
+        if first_distinctive not in best_tokens and first_distinctive not in best_norm:
+            return None
 
     if len(wanted_tokens) == 1:
         only_token = next(iter(wanted_tokens))
