@@ -46,8 +46,20 @@ DETAILS_FIELDS = ",".join(
 CATEGORY_TYPE_HINTS = {
     "bubble-tea": {"bubble_tea_shop", "tea_house", "cafe"},
     "cafeteria": {"cafe", "coffee_shop"},
-    "heladeria": {"ice_cream_shop", "dessert_shop", "cafe", "deli", "candy_store", "store"},
-    "hamburgueseria": {"hamburger_restaurant", "fast_food_restaurant", "restaurant"},
+    "heladeria": {
+        "ice_cream_shop",
+        "dessert_shop",
+        "pastry_shop",
+        "deli",
+        "candy_store",
+        "store",
+        "cafe",
+    },
+    "hamburgueseria": {
+        "hamburger_restaurant",
+        "fast_food_restaurant",
+        "restaurant",
+    },
     "pizza": {"pizza_restaurant", "restaurant"},
     "restaurante": {"restaurant", "meal_takeaway", "meal_delivery"},
     "escape-room": {"escape_room_center", "amusement_center"},
@@ -56,13 +68,25 @@ CATEGORY_TYPE_HINTS = {
     "bolera": {"bowling_alley", "amusement_center"},
     "cine": {"movie_theater"},
     "museo": {"museum", "art_museum"},
-    "ropa": {"clothing_store", "store"},
+    "ropa": {
+        "clothing_store",
+        "womens_clothing_store",
+        "mens_clothing_store",
+        "childrens_clothing_store",
+        "shoe_store",
+        "store",
+    },
     "sneakers": {"shoe_store", "sporting_goods_store", "store"},
     "manga": {"book_store", "comic_book_store", "store"},
     "regalos": {"gift_shop", "store", "candy_store"},
     "belleza": {"cosmetics_store", "beauty_salon", "store"},
     "compras": {"shopping_mall", "department_store", "store"},
-    "actividad": {"amusement_center", "sports_complex", "museum", "movie_theater"},
+    "actividad": {
+        "amusement_center",
+        "sports_complex",
+        "museum",
+        "movie_theater",
+    },
     "nightlife": {"bar", "pub", "night_club"},
 }
 
@@ -227,8 +251,16 @@ def _tokens(value: Any) -> set[str]:
         "las",
         "y",
         "en",
+        "shop",
+        "store",
+        "center",
+        "centre",
     }
     return {x for x in _norm(value).split() if len(x) >= 3 and x not in ignored}
+
+
+def _number_tokens(value: Any) -> set[str]:
+    return set(re.findall(r"\d+", _norm(value)))
 
 
 def _similarity(a: Any, b: Any) -> float:
@@ -298,19 +330,30 @@ def _type_compatibility_score(category: str, primary_type: str) -> float:
     if primary_type in hints:
         return 4.0
 
-    if category == "bubble-tea" and primary_type in {"cafe", "tea_house", "bubble_tea_shop"}:
+    if category == "bubble-tea" and primary_type in {
+        "bubble_tea_shop",
+        "tea_house",
+        "cafe",
+    }:
         return 5.0
 
     if category == "heladeria" and primary_type in {
         "ice_cream_shop",
         "dessert_shop",
+        "pastry_shop",
         "deli",
         "candy_store",
         "store",
+        "cafe",
     }:
         return 3.0
 
-    if category in {"cafeteria", "heladeria"} and primary_type in {"cafe", "dessert_shop", "store"}:
+    if category in {"cafeteria", "heladeria"} and primary_type in {
+        "cafe",
+        "dessert_shop",
+        "pastry_shop",
+        "store",
+    }:
         return 2.0
 
     if category in {"actividad", "escape-room", "jump-park", "arcade", "bolera"} and primary_type in {
@@ -319,6 +362,7 @@ def _type_compatibility_score(category: str, primary_type: str) -> float:
         "movie_theater",
         "museum",
         "bowling_alley",
+        "escape_room_center",
     }:
         return 3.0
 
@@ -326,6 +370,12 @@ def _type_compatibility_score(category: str, primary_type: str) -> float:
         "store",
         "shopping_mall",
         "department_store",
+        "clothing_store",
+        "womens_clothing_store",
+        "mens_clothing_store",
+        "shoe_store",
+        "book_store",
+        "gift_shop",
     }:
         return 2.0
 
@@ -340,9 +390,11 @@ def _has_address_signal(item: dict) -> bool:
     address = _clean(item.get("direccion", ""))
     if not address:
         return False
+
     low = address.lower()
     if low in {"bilbao", "bizkaia", "vizcaya", "centro de bilbao"}:
         return False
+
     return bool(re.search(r"\d", low)) or any(
         x in low
         for x in [
@@ -476,12 +528,30 @@ def choose_best_candidate(item: dict, candidates: list[dict]) -> dict | None:
 
     best_name = _clean((best.get("displayName") or {}).get("text", ""))
     best_type = _clean(best.get("primaryType", ""))
-    type_score = _type_compatibility_score(wanted_category, best_type)
 
+    type_score = _type_compatibility_score(wanted_category, best_type)
     best_similarity = _similarity(wanted_name, best_name)
     best_token_overlap = _token_overlap(wanted_name, best_name)
 
-    # Regla dura: si la categoría es muy específica, no aceptar nombres sin coincidencia.
+    wanted_numbers = _number_tokens(wanted_name)
+    best_numbers = _number_tokens(best_name)
+
+    if wanted_numbers and not wanted_numbers.issubset(best_numbers):
+        return None
+
+    wanted_tokens = _tokens(wanted_name)
+    best_tokens = _tokens(best_name)
+
+    if len(wanted_tokens) == 1:
+        only_token = next(iter(wanted_tokens))
+        best_norm = _norm(best_name)
+
+        if only_token not in best_tokens and only_token not in best_norm:
+            return None
+
+        if best_similarity < 0.75 and best_token_overlap < 1.0:
+            return None
+
     strict_categories = {
         "bubble-tea",
         "escape-room",
@@ -505,23 +575,20 @@ def choose_best_candidate(item: dict, candidates: list[dict]) -> dict | None:
         if best_similarity < 0.62 and best_token_overlap < 0.40:
             return None
 
-    # Regla dura: si el tipo Google contradice la categoría interna, rechazar.
     if type_score <= -5.0:
         return None
 
-    # Regla dura específica para bubble tea: evitar restaurantes genéricos.
     if wanted_category == "bubble-tea":
         if best_type not in {"bubble_tea_shop", "tea_house", "cafe"}:
             return None
-        if best_token_overlap < 0.50 and "bubble" not in _norm(best_name) and "tea" not in _norm(best_name):
+        best_norm = _norm(best_name)
+        if best_token_overlap < 0.50 and "bubble" not in best_norm and "tea" not in best_norm:
             return None
 
-    # Regla dura para escape-room.
     if wanted_category == "escape-room":
         if best_type not in {"escape_room_center", "amusement_center"}:
             return None
 
-    # Regla dura para jump park.
     if wanted_category == "jump-park":
         if best_type not in {"amusement_center", "sports_complex"}:
             return None
