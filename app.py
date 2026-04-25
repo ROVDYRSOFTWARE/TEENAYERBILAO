@@ -125,15 +125,21 @@ def event_rows():
 
 
 def place_rows():
-    return [
-        dict(
-            row,
-            _entity_type="lugar",
-            _maps_url=build_maps_url(row),
-            _embed_url=build_osm_embed_url(row),
+    rows = []
+    for row in data_store.load_places():
+        if row.get("teen_safe") is False:
+            continue
+
+        rows.append(
+            dict(
+                row,
+                _entity_type="lugar",
+                _maps_url=build_maps_url(row),
+                _embed_url=build_osm_embed_url(row),
+            )
         )
-        for row in data_store.load_places()
-    ]
+
+    return rows
 
 
 def _place_sort_score(row: dict):
@@ -459,7 +465,7 @@ def evento_detalle(event_id: str):
 @app.route("/lugar/<place_id>")
 def lugar_detalle(place_id: str):
     item = data_store.get_place(place_id)
-    if not item:
+    if not item or item.get("teen_safe") is False:
         return "Lugar no encontrado", 404
 
     row = dict(
@@ -476,6 +482,9 @@ def lugar_detalle(place_id: str):
 def accion(entity_type: str, entity_id: str, action: str):
     item = data_store.get_event(entity_id) if entity_type == "evento" else data_store.get_place(entity_id)
     if not item:
+        return "Contenido no encontrado", 404
+
+    if entity_type == "lugar" and item.get("teen_safe") is False:
         return "Contenido no encontrado", 404
 
     row = dict(item, _entity_type=entity_type)
