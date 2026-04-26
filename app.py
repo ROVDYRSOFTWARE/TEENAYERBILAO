@@ -73,16 +73,31 @@ def build_maps_url(item: dict) -> str:
     if maps_url:
         return maps_url
 
+    google_maps_uri = (item.get("google_maps_uri") or "").strip()
+    if google_maps_uri:
+        return google_maps_uri
+
     lat = str(item.get("latitud") or "").strip()
     lon = str(item.get("longitud") or "").strip()
     if lat and lon:
         return f"https://www.google.com/maps?q={lat},{lon}"
 
     query = ", ".join(
-        [x for x in [item.get("ubicacion"), item.get("direccion"), item.get("barrio"), "Bilbao"] if x]
+        [
+            x
+            for x in [
+                item.get("ubicacion"),
+                item.get("direccion"),
+                item.get("google_formatted_address"),
+                item.get("barrio"),
+                "Bilbao",
+            ]
+            if x
+        ]
     )
     if query:
         from urllib.parse import quote_plus
+
         return f"https://www.google.com/maps/search/?api=1&query={quote_plus(query)}"
 
     return ""
@@ -126,6 +141,7 @@ def event_rows():
 
 def place_rows():
     rows = []
+
     for row in data_store.load_places():
         if row.get("teen_safe") is False:
             continue
@@ -140,69 +156,6 @@ def place_rows():
         )
 
     return rows
-
-
-def _place_sort_score(row: dict):
-    try:
-        teen_score = int(row.get("teen_score", 0) or 0)
-    except Exception:
-        teen_score = 0
-    return (-teen_score, (row.get("nombre") or "").lower())
-
-
-def build_place_sections(rows: list[dict]) -> list[dict]:
-    buckets = [
-        {
-            "key": "food",
-            "title": "Comer y merendar",
-            "subtitle": "Bubble tea, cafeterías, heladerías, pizza, burgers y planes para picar algo.",
-            "cats": {"bubble-tea", "cafeteria", "heladeria", "hamburgueseria", "pizza", "merendar", "restaurante"},
-            "rows": [],
-        },
-        {
-            "key": "activity",
-            "title": "Actividades",
-            "subtitle": "Bolera, cine, escape room, arcade, jump park, museos y planes para moverse o divertirse.",
-            "cats": {"bolera", "escape-room", "arcade", "jump-park", "cine", "museo", "actividad", "deporte"},
-            "rows": [],
-        },
-        {
-            "key": "shopping",
-            "title": "Compras",
-            "subtitle": "Tiendas de ropa, sneakers, manga, regalos, belleza y zonas para mirar cosas en grupo.",
-            "cats": {"ropa", "sneakers", "manga", "regalos", "belleza", "compras"},
-            "rows": [],
-        },
-        {
-            "key": "meetup",
-            "title": "Quedada y relax",
-            "subtitle": "Sitios para quedar, pasear, charlar o montar un plan tranquilo.",
-            "cats": {"quedada", "paseo", "parque", "visit", "visita", "nightlife"},
-            "rows": [],
-        },
-        {
-            "key": "other",
-            "title": "Otros planes",
-            "subtitle": "Opciones que no encajan del todo en los bloques anteriores pero pueden servir.",
-            "cats": set(),
-            "rows": [],
-        },
-    ]
-
-    for item in rows:
-        cat = (item.get("categoria") or "").strip().lower()
-        assigned = False
-
-        for bucket in buckets[:-1]:
-            if cat in bucket["cats"]:
-                bucket["rows"].append(item)
-                assigned = True
-                break
-
-        if not assigned:
-            buckets[-1]["rows"].append(item)
-
-    return [bucket for bucket in buckets if bucket["rows"]]
 
 
 def _today_madrid() -> date:
@@ -283,8 +236,24 @@ def _parse_spanish_title_date(title: str) -> date | None:
     return fecha
 
 
+def _row_event_start(row: dict) -> date | None:
+    return (
+        _parse_event_date(row.get("fecha_inicio", ""))
+        or _parse_event_date(row.get("fecha", ""))
+        or _parse_spanish_title_date(row.get("titulo", ""))
+    )
+
+
+def _row_event_end(row: dict) -> date | None:
+    return (
+        _parse_event_date(row.get("fecha_fin", ""))
+        or _parse_event_date(row.get("fecha", ""))
+        or _row_event_start(row)
+    )
+
+
 def _row_event_date(row: dict) -> date | None:
-    return _parse_event_date(row.get("fecha", "")) or _parse_spanish_title_date(row.get("titulo", ""))
+    return _row_event_start(row)
 
 
 def _event_sort_key(row: dict):
@@ -292,14 +261,60 @@ def _event_sort_key(row: dict):
     return (fecha or date.max, row.get("titulo", ""))
 
 
-def upcoming_event_rows():
+def _event_is_today(row: dict) -> bool:
     hoy = _today_madrid()
+    inicio = _row_event_start(row)
+    fin = _row_event_end(row)
+
+    if not inicio:
+        return False
+
+    fin = fin or inicio
+    return inicio <= hoy <= fin
+
+
+def _event_is_upcoming_or_active(row: dict) -> bool:
+    hoy = _today_madrid()
+    inicio = _row_event_start(row)
+    fin = _row_event_end(row)
+
+    if not inicio:
+        return False
+
+    fin = fin or inicio
+    return fin >= hoy
+
+
+def today_event_rows():
     salida = []
 
     for row in event_rows():
-        fecha = _row_event_date(row)
-        if fecha and fecha >= hoy:
-            salida.append(row)
+        if not _event_is_today(row):
+            continue
+
+        item = dict(row)
+        fecha = _row_event_start(item)
+        if fecha:
+            item["fecha"] = fecha.isoformat()
+
+        salida.append(item)
+
+    return salida
+
+
+def upcoming_event_rows():
+    salida = []
+
+    for row in event_rows():
+        if not _event_is_upcoming_or_active(row):
+            continue
+
+        item = dict(row)
+        fecha = _row_event_start(item)
+        if fecha:
+            item["fecha"] = fecha.isoformat()
+
+        salida.append(item)
 
     return salida
 
@@ -436,14 +451,8 @@ def eventos():
 
 @app.route("/lugares")
 def lugares():
-    rows = sorted(place_rows(), key=_place_sort_score)
-    sections = build_place_sections(rows)
-    return render_with_token(
-        "lugares.html",
-        title="Lugares",
-        items=rows,
-        sections=sections,
-    )
+    rows = sorted(place_rows(), key=lambda x: (x.get("barrio", ""), x.get("nombre", "")))
+    return render_with_token("lugares.html", title="Lugares", items=rows)
 
 
 @app.route("/evento/<event_id>")
@@ -540,14 +549,22 @@ def recomendado():
 @app.route("/plan-hoy")
 def plan_hoy():
     token = current_token()
-    base_plan = recommender.plan_hoy(token, event_rows(), place_rows())
+
+    events_today = today_event_rows()
+    places = place_rows()
+
+    base_plan = recommender.plan_hoy(token, events_today, places)
     plan = group_planner.enrich_today_plan(
         token=token,
         plan=base_plan,
-        events=upcoming_event_rows(),
-        places=place_rows(),
+        events=events_today,
+        places=places,
         profile=recommender.get_profile(token),
     )
+
+    plan["today_date"] = _today_madrid().isoformat()
+    plan["events_today_count"] = len(events_today)
+
     return render_with_token("plan_hoy.html", plan=plan)
 
 
@@ -600,14 +617,21 @@ def plan_grupo():
 @app.route("/compartir-plan-hoy", methods=["POST"])
 def compartir_plan_hoy():
     token = current_token()
-    base_plan = recommender.plan_hoy(token, event_rows(), place_rows())
+
+    events_today = today_event_rows()
+    places = place_rows()
+
+    base_plan = recommender.plan_hoy(token, events_today, places)
     plan = group_planner.enrich_today_plan(
         token=token,
         plan=base_plan,
-        events=upcoming_event_rows(),
-        places=place_rows(),
+        events=events_today,
+        places=places,
         profile=recommender.get_profile(token),
     )
+
+    plan["today_date"] = _today_madrid().isoformat()
+    plan["events_today_count"] = len(events_today)
 
     shared = share_plans.create_shared_plan(
         kind="hoy",
@@ -727,6 +751,8 @@ def admin_evento_form(event_id: str | None = None):
             "id": request.form.get("id", "").strip() or None,
             "titulo": request.form.get("titulo", "").strip(),
             "fecha": request.form.get("fecha", "").strip(),
+            "fecha_inicio": request.form.get("fecha_inicio", "").strip(),
+            "fecha_fin": request.form.get("fecha_fin", "").strip(),
             "barrio": request.form.get("barrio", "").strip(),
             "categoria": request.form.get("categoria", "").strip(),
             "franja": request.form.get("franja", "").strip(),
@@ -845,6 +871,7 @@ def export_auditoria():
         headers={"Content-Disposition": "attachment; filename=auditoria.csv"},
     )
 
+
 @app.route("/admin/export/estadisticas.csv")
 @admin_required
 def export_estadisticas():
@@ -855,6 +882,7 @@ def export_estadisticas():
         {"metric": "profiles_total", "value": stats["profiles_total"]},
         {"metric": "interactions_total", "value": stats["interactions_total"]},
     ]
+
     for dkey in ("by_category", "by_barrio", "by_action"):
         for key, value in stats[dkey].items():
             rows.append({"metric": f"{dkey}:{key}", "value": value})
