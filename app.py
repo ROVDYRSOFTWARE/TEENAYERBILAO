@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 import os
 import re
 import uuid
@@ -138,24 +139,106 @@ def event_rows():
         for row in data_store.load_events()
     ]
 
+def _norm_place_text(value: str) -> str:
+    text = str(value or "").strip().lower()
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _safe_float(value):
+    try:
+        return float(str(value).replace(",", "."))
+    except Exception:
+        return None
+
+
+def _place_dedupe_key(row: dict):
+    google_place_id = str(row.get("google_place_id") or "").strip()
+    if google_place_id:
+        return ("google", google_place_id)
+
+    name = _norm_place_text(row.get("google_display_name") or row.get("nombre"))
+    address = _norm_place_text(row.get("google_formatted_address") or row.get("direccion"))
+
+    if name and address:
+        return ("name_address", name, address)
+
+    lat = _safe_float(row.get("latitud"))
+    lon = _safe_float(row.get("longitud"))
+    if name and lat is not None and lon is not None:
+        return ("name_geo", name, round(lat, 5), round(lon, 5))
+
+    categoria = _norm_place_text(row.get("categoria"))
+    barrio = _norm_place_text(row.get("barrio"))
+
+    if name and categoria and barrio:
+        return ("name_category_barrio", name, categoria, barrio)
+
+    return ("id", row.get("id"))
+
+
+def _place_quality_score(row: dict) -> float:
+    score = 0.0
+
+    if row.get("google_enriched"):
+        score += 50
+
+    if row.get("google_place_id"):
+        score += 25
+
+    if row.get("google_formatted_address") or row.get("direccion"):
+        score += 10
+
+    if row.get("latitud") and row.get("longitud"):
+        score += 8
+
+    if row.get("google_maps_uri") or row.get("maps_url"):
+        score += 6
+
+    if row.get("google_opening_hours_text") or row.get("horario"):
+        score += 5
+
+    if row.get("google_rating"):
+        score += float(row.get("google_rating") or 0)
+
+    if row.get("google_user_rating_count"):
+        try:
+            score += min(float(row.get("google_user_rating_count") or 0) / 100, 5)
+        except Exception:
+            pass
+
+    if row.get("descripcion"):
+        score += 1
+
+    return score
 
 def place_rows():
-    rows = []
+    deduped = {}
 
     for row in data_store.load_places():
         if row.get("teen_safe") is False:
             continue
 
-        rows.append(
-            dict(
-                row,
-                _entity_type="lugar",
-                _maps_url=build_maps_url(row),
-                _embed_url=build_osm_embed_url(row),
-            )
+        enriched = dict(
+            row,
+            _entity_type="lugar",
+            _maps_url=build_maps_url(row),
+            _embed_url=build_osm_embed_url(row),
         )
 
-    return rows
+        key = _place_dedupe_key(enriched)
+        current = deduped.get(key)
+
+        if not current:
+            deduped[key] = enriched
+            continue
+
+        if _place_quality_score(enriched) > _place_quality_score(current):
+            deduped[key] = enriched
+
+    return list(deduped.values())
 
 
 def _today_madrid() -> date:
