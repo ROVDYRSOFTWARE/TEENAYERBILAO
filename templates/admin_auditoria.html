@@ -1,27 +1,559 @@
-{% extends 'admin_base.html' %}
+{% extends 'base.html' %}
 {% block title %}Auditoría{% endblock %}
+
 {% block content %}
-<div class="card" style="margin-bottom:16px;">
-  <h1>Auditoría y estadísticas</h1>
-  <p><a href="{{ url_for('export_auditoria') }}">Descargar auditoría CSV</a> · <a href="{{ url_for('export_estadisticas') }}">Descargar estadísticas CSV</a></p>
+<div class="card hero-card">
+  <div class="hero-kicker">📊 Panel interno</div>
+  <h1>Auditoría y análisis de uso</h1>
+  <p>
+    Analiza la actividad de la aplicación por día, semana, mes o año.
+    Incluye acciones de administración, interacciones de usuarios y evolución temporal.
+  </p>
+
+  <div class="tag-row" style="margin-top:10px;">
+    <span class="pill">📅 Día</span>
+    <span class="pill">🗓️ Semana</span>
+    <span class="pill">📆 Mes</span>
+    <span class="pill">📈 Año</span>
+    <span class="pill">👥 Interacciones</span>
+  </div>
+
+  <div class="hero-actions">
+    <a class="btn secondary" href="{{ url_for('admin') }}">Volver al admin</a>
+    <a class="btn ghost" href="{{ url_for('export_auditoria') }}">Exportar auditoría CSV</a>
+    <a class="btn ghost" href="{{ url_for('export_estadisticas') }}">Exportar estadísticas CSV</a>
+  </div>
 </div>
+
+<div class="card">
+  <div class="section-title">
+    <div>
+      <h2>Filtros de análisis</h2>
+      <p>Selecciona el periodo y el tipo de datos que quieres analizar.</p>
+    </div>
+  </div>
+
+  <div class="form-grid" style="margin-top:14px;">
+    <div>
+      <label>Periodo</label>
+      <select id="periodFilter">
+        <option value="day">Día</option>
+        <option value="week">Semana</option>
+        <option value="month" selected>Mes</option>
+        <option value="year">Año</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Fecha de referencia</label>
+      <input id="dateFilter" type="date">
+    </div>
+
+    <div>
+      <label>Datos</label>
+      <select id="sourceFilter">
+        <option value="all">Auditoría + interacciones</option>
+        <option value="audit">Solo auditoría</option>
+        <option value="interactions">Solo interacciones</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Acción</label>
+      <select id="actionFilter">
+        <option value="">Todas</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="hero-actions" style="margin-top:16px;">
+    <button type="button" class="btn" id="applyFilters">Actualizar análisis</button>
+    <button type="button" class="btn secondary" id="todayBtn">Hoy</button>
+    <button type="button" class="btn ghost" id="downloadCsvBtn">Descargar vista CSV</button>
+  </div>
+</div>
+
 <div class="grid">
-  <div class="card"><h2>Por acción</h2><ul>{% for k, v in stats.by_action.items() %}<li>{{ k }}: {{ v }}</li>{% endfor %}</ul></div>
-  <div class="card"><h2>Por barrio</h2><ul>{% for k, v in stats.by_barrio.items() %}<li>{{ k }}: {{ v }}</li>{% endfor %}</ul></div>
-  <div class="card"><h2>Por categoría</h2><ul>{% for k, v in stats.by_category.items() %}<li>{{ k }}: {{ v }}</li>{% endfor %}</ul></div>
+  <div class="card">
+    <h2 id="kpiTotal">0</h2>
+    <p>Total de registros filtrados</p>
+  </div>
+
+  <div class="card">
+    <h2 id="kpiAudit">0</h2>
+    <p>Registros de auditoría</p>
+  </div>
+
+  <div class="card">
+    <h2 id="kpiInteractions">0</h2>
+    <p>Interacciones de usuarios</p>
+  </div>
+
+  <div class="card">
+    <h2 id="kpiUsers">0</h2>
+    <p>Tokens / usuarios únicos</p>
+  </div>
+
+  <div class="card">
+    <h2 id="kpiTopAction">-</h2>
+    <p>Acción más frecuente</p>
+  </div>
+
+  <div class="card">
+    <h2 id="kpiTopEntity">-</h2>
+    <p>Tipo de contenido más usado</p>
+  </div>
 </div>
-<div class="card" style="margin-top:16px;">
-  <h2>Últimas interacciones</h2>
-  <table>
-    <tr><th>Fecha</th><th>Token</th><th>Acción</th><th>Tipo</th><th>ID</th><th>Barrio</th></tr>
-    {% for row in interactions %}<tr><td>{{ row.ts }}</td><td>{{ row.token }}</td><td>{{ row.action }}</td><td>{{ row.entity_type }}</td><td>{{ row.entity_id }}</td><td>{{ row.barrio }}</td></tr>{% endfor %}
-  </table>
+
+<div class="grid">
+  <div class="card" style="grid-column:span 12;">
+    <div class="section-title">
+      <div>
+        <h2>Evolución temporal</h2>
+        <p id="timeChartSubtitle">Actividad agrupada por periodo.</p>
+      </div>
+    </div>
+    <canvas id="timeChart" style="width:100%; height:320px; margin-top:12px;"></canvas>
+  </div>
+
+  <div class="card" style="grid-column:span 6;">
+    <h2>Acciones</h2>
+    <p>Distribución de acciones registradas.</p>
+    <canvas id="actionChart" style="width:100%; height:300px; margin-top:12px;"></canvas>
+  </div>
+
+  <div class="card" style="grid-column:span 6;">
+    <h2>Tipos de contenido</h2>
+    <p>Eventos, lugares, perfiles u otros objetos.</p>
+    <canvas id="entityChart" style="width:100%; height:300px; margin-top:12px;"></canvas>
+  </div>
 </div>
-<div class="card" style="margin-top:16px;">
-  <h2>Log de auditoría</h2>
-  <table>
-    <tr><th>Fecha</th><th>Acción</th><th>Tipo</th><th>ID</th><th>Meta</th></tr>
-    {% for row in audit_rows %}<tr><td>{{ row.ts }}</td><td>{{ row.action }}</td><td>{{ row.entity_type }}</td><td>{{ row.entity_id }}</td><td>{{ row.meta }}</td></tr>{% endfor %}
-  </table>
+
+<div class="card">
+  <div class="section-title">
+    <div>
+      <h2>Detalle de registros</h2>
+      <p>Se muestran los primeros 300 registros filtrados, ordenados de más reciente a más antiguo.</p>
+    </div>
+  </div>
+
+  <div style="overflow:auto; margin-top:14px;">
+    <table style="width:100%; border-collapse:collapse; min-width:900px;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:10px; border-bottom:1px solid rgba(255,255,255,.12);">Fecha</th>
+          <th style="text-align:left; padding:10px; border-bottom:1px solid rgba(255,255,255,.12);">Origen</th>
+          <th style="text-align:left; padding:10px; border-bottom:1px solid rgba(255,255,255,.12);">Acción</th>
+          <th style="text-align:left; padding:10px; border-bottom:1px solid rgba(255,255,255,.12);">Tipo</th>
+          <th style="text-align:left; padding:10px; border-bottom:1px solid rgba(255,255,255,.12);">ID</th>
+          <th style="text-align:left; padding:10px; border-bottom:1px solid rgba(255,255,255,.12);">Detalle</th>
+        </tr>
+      </thead>
+      <tbody id="auditTableBody"></tbody>
+    </table>
+  </div>
 </div>
+
+<script>
+const AUDIT_ROWS = {{ audit_rows|tojson }};
+const INTERACTIONS = {{ interactions|tojson }};
+
+function pad(n) {
+  return String(n).padStart(2, "0");
+}
+
+function toDateInputValue(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function parseDateSafe(value) {
+  if (!value) return null;
+  const raw = String(value);
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) return d;
+
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+
+  return null;
+}
+
+function startOfDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function addDays(d, days) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+}
+
+function addMonths(d, months) {
+  const x = new Date(d);
+  x.setMonth(x.getMonth() + months);
+  return x;
+}
+
+function addYears(d, years) {
+  const x = new Date(d);
+  x.setFullYear(x.getFullYear() + years);
+  return x;
+}
+
+function startOfWeekMonday(d) {
+  const x = startOfDay(d);
+  const day = (x.getDay() + 6) % 7;
+  x.setDate(x.getDate() - day);
+  return x;
+}
+
+function getRange(period, anchor) {
+  const d = startOfDay(anchor);
+
+  if (period === "day") {
+    return { start: d, end: addDays(d, 1) };
+  }
+
+  if (period === "week") {
+    const start = startOfWeekMonday(d);
+    return { start, end: addDays(start, 7) };
+  }
+
+  if (period === "year") {
+    const start = new Date(d.getFullYear(), 0, 1);
+    return { start, end: addYears(start, 1) };
+  }
+
+  const start = new Date(d.getFullYear(), d.getMonth(), 1);
+  return { start, end: addMonths(start, 1) };
+}
+
+function normalizeRow(row, source) {
+  const ts = row.ts || row.timestamp || row.created_at || row.created || "";
+  const d = parseDateSafe(ts);
+
+  return {
+    ts,
+    date: d,
+    source,
+    action: row.action || row.event || row.tipo || "sin_accion",
+    entity_type: row.entity_type || row.entity || row._entity_type || row.tipo_entidad || "sin_tipo",
+    entity_id: row.entity_id || row.id || row.item_id || row.event_id || row.place_id || "",
+    token: row.token || row.owner_token || row.user_token || row.session_token || "",
+    meta: row.meta || row.detail || row.details || row
+  };
+}
+
+const ALL_ROWS = [
+  ...AUDIT_ROWS.map(r => normalizeRow(r, "auditoría")),
+  ...INTERACTIONS.map(r => normalizeRow(r, "interacción"))
+].filter(r => r.date);
+
+function countBy(rows, key) {
+  const out = {};
+  rows.forEach(r => {
+    const k = r[key] || "sin_dato";
+    out[k] = (out[k] || 0) + 1;
+  });
+  return out;
+}
+
+function topEntry(counter) {
+  const entries = Object.entries(counter).sort((a, b) => b[1] - a[1]);
+  return entries.length ? entries[0] : ["-", 0];
+}
+
+function bucketLabel(date, period) {
+  if (period === "day") {
+    return `${pad(date.getHours())}:00`;
+  }
+
+  if (period === "week" || period === "month") {
+    return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`;
+  }
+
+  const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  return months[date.getMonth()];
+}
+
+function buildTimeSeries(rows, period, range) {
+  const labels = [];
+  const map = {};
+
+  if (period === "day") {
+    for (let h = 0; h < 24; h++) {
+      const label = `${pad(h)}:00`;
+      labels.push(label);
+      map[label] = 0;
+    }
+  } else if (period === "week") {
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(range.start, i);
+      const label = bucketLabel(d, period);
+      labels.push(label);
+      map[label] = 0;
+    }
+  } else if (period === "year") {
+    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    months.forEach(label => {
+      labels.push(label);
+      map[label] = 0;
+    });
+  } else {
+    const days = Math.round((range.end - range.start) / (1000 * 60 * 60 * 24));
+    for (let i = 0; i < days; i++) {
+      const d = addDays(range.start, i);
+      const label = bucketLabel(d, period);
+      labels.push(label);
+      map[label] = 0;
+    }
+  }
+
+  rows.forEach(r => {
+    const label = bucketLabel(r.date, period);
+    if (map[label] !== undefined) map[label] += 1;
+  });
+
+  return {
+    labels,
+    values: labels.map(l => map[l] || 0)
+  };
+}
+
+function setupCanvas(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.max(320, rect.width);
+  const height = parseInt(canvas.style.height || "300", 10);
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  return { ctx, width, height };
+}
+
+function drawBarChart(canvasId, labels, values) {
+  const canvas = document.getElementById(canvasId);
+  const { ctx, width, height } = setupCanvas(canvas);
+
+  ctx.clearRect(0, 0, width, height);
+
+  const max = Math.max(1, ...values);
+  const padding = { top: 22, right: 18, bottom: 42, left: 42 };
+  const chartW = width - padding.left - padding.right;
+  const chartH = height - padding.top - padding.bottom;
+  const barW = Math.max(4, chartW / Math.max(1, labels.length) - 6);
+
+  ctx.strokeStyle = "rgba(255,255,255,.16)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padding.left, padding.top);
+  ctx.lineTo(padding.left, padding.top + chartH);
+  ctx.lineTo(padding.left + chartW, padding.top + chartH);
+  ctx.stroke();
+
+  values.forEach((value, i) => {
+    const x = padding.left + i * (chartW / labels.length) + 3;
+    const h = (value / max) * chartH;
+    const y = padding.top + chartH - h;
+
+    const grad = ctx.createLinearGradient(0, y, 0, y + h);
+    grad.addColorStop(0, "#22d3ee");
+    grad.addColorStop(1, "#8b5cf6");
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, barW, h);
+
+    if (labels.length <= 31 || i % Math.ceil(labels.length / 12) === 0) {
+      ctx.fillStyle = "rgba(248,250,252,.8)";
+      ctx.font = "11px Inter, sans-serif";
+      ctx.save();
+      ctx.translate(x, height - 16);
+      ctx.rotate(-Math.PI / 5);
+      ctx.fillText(labels[i], 0, 0);
+      ctx.restore();
+    }
+  });
+
+  ctx.fillStyle = "rgba(248,250,252,.85)";
+  ctx.font = "12px Inter, sans-serif";
+  ctx.fillText(String(max), 8, padding.top + 4);
+}
+
+function drawHorizontalChart(canvasId, counter, limit = 10) {
+  const entries = Object.entries(counter)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit);
+
+  const canvas = document.getElementById(canvasId);
+  const { ctx, width, height } = setupCanvas(canvas);
+
+  ctx.clearRect(0, 0, width, height);
+
+  const max = Math.max(1, ...entries.map(e => e[1]));
+  const left = 130;
+  const right = 20;
+  const top = 18;
+  const rowH = Math.min(26, (height - 30) / Math.max(1, entries.length));
+
+  ctx.font = "12px Inter, sans-serif";
+
+  entries.forEach(([label, value], i) => {
+    const y = top + i * rowH;
+    const barW = ((width - left - right) * value) / max;
+
+    ctx.fillStyle = "rgba(248,250,252,.82)";
+    ctx.fillText(String(label).slice(0, 22), 8, y + 15);
+
+    const grad = ctx.createLinearGradient(left, y, left + barW, y);
+    grad.addColorStop(0, "#8b5cf6");
+    grad.addColorStop(1, "#22d3ee");
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(left, y + 3, barW, rowH - 8);
+
+    ctx.fillStyle = "rgba(248,250,252,.9)";
+    ctx.fillText(value, left + barW + 6, y + 15);
+  });
+}
+
+function filterRows() {
+  const period = document.getElementById("periodFilter").value;
+  const source = document.getElementById("sourceFilter").value;
+  const action = document.getElementById("actionFilter").value;
+  const dateValue = document.getElementById("dateFilter").value;
+
+  const anchor = dateValue ? parseDateSafe(dateValue) : new Date();
+  const range = getRange(period, anchor || new Date());
+
+  return ALL_ROWS.filter(r => {
+    if (source === "audit" && r.source !== "auditoría") return false;
+    if (source === "interactions" && r.source !== "interacción") return false;
+    if (action && r.action !== action) return false;
+    return r.date >= range.start && r.date < range.end;
+  });
+}
+
+function fillActionFilter() {
+  const select = document.getElementById("actionFilter");
+  const actions = Array.from(new Set(ALL_ROWS.map(r => r.action))).sort();
+
+  actions.forEach(action => {
+    const opt = document.createElement("option");
+    opt.value = action;
+    opt.textContent = action;
+    select.appendChild(opt);
+  });
+}
+
+function updateKpis(rows) {
+  const audit = rows.filter(r => r.source === "auditoría").length;
+  const interactions = rows.filter(r => r.source === "interacción").length;
+  const users = new Set(rows.map(r => r.token).filter(Boolean)).size;
+  const actionTop = topEntry(countBy(rows, "action"));
+  const entityTop = topEntry(countBy(rows, "entity_type"));
+
+  document.getElementById("kpiTotal").textContent = rows.length;
+  document.getElementById("kpiAudit").textContent = audit;
+  document.getElementById("kpiInteractions").textContent = interactions;
+  document.getElementById("kpiUsers").textContent = users;
+  document.getElementById("kpiTopAction").textContent = actionTop[0];
+  document.getElementById("kpiTopEntity").textContent = entityTop[0];
+}
+
+function updateTable(rows) {
+  const body = document.getElementById("auditTableBody");
+  body.innerHTML = "";
+
+  const sorted = [...rows].sort((a, b) => b.date - a.date).slice(0, 300);
+
+  sorted.forEach(r => {
+    const tr = document.createElement("tr");
+    const meta = typeof r.meta === "string" ? r.meta : JSON.stringify(r.meta || {});
+
+    tr.innerHTML = `
+      <td style="padding:10px; border-bottom:1px solid rgba(255,255,255,.08); white-space:nowrap;">${r.ts || ""}</td>
+      <td style="padding:10px; border-bottom:1px solid rgba(255,255,255,.08);">${r.source}</td>
+      <td style="padding:10px; border-bottom:1px solid rgba(255,255,255,.08);">${r.action}</td>
+      <td style="padding:10px; border-bottom:1px solid rgba(255,255,255,.08);">${r.entity_type}</td>
+      <td style="padding:10px; border-bottom:1px solid rgba(255,255,255,.08);">${r.entity_id}</td>
+      <td style="padding:10px; border-bottom:1px solid rgba(255,255,255,.08); max-width:420px; overflow:hidden; text-overflow:ellipsis;">${meta.slice(0, 220)}</td>
+    `;
+
+    body.appendChild(tr);
+  });
+}
+
+function downloadCsv(rows) {
+  const headers = ["fecha", "origen", "accion", "tipo", "id", "token"];
+  const lines = [headers.join(",")];
+
+  rows.forEach(r => {
+    const cols = [
+      r.ts || "",
+      r.source || "",
+      r.action || "",
+      r.entity_type || "",
+      r.entity_id || "",
+      r.token || ""
+    ].map(v => `"${String(v).replaceAll('"', '""')}"`);
+
+    lines.push(cols.join(","));
+  });
+
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "auditoria_filtrada.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function refreshDashboard() {
+  const rows = filterRows();
+  const period = document.getElementById("periodFilter").value;
+  const dateValue = document.getElementById("dateFilter").value;
+  const anchor = dateValue ? parseDateSafe(dateValue) : new Date();
+  const range = getRange(period, anchor || new Date());
+
+  updateKpis(rows);
+
+  const series = buildTimeSeries(rows, period, range);
+  drawBarChart("timeChart", series.labels, series.values);
+  drawHorizontalChart("actionChart", countBy(rows, "action"), 10);
+  drawHorizontalChart("entityChart", countBy(rows, "entity_type"), 10);
+  updateTable(rows);
+
+  document.getElementById("timeChartSubtitle").textContent =
+    `Actividad desde ${range.start.toLocaleDateString()} hasta ${range.end.toLocaleDateString()}`;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("dateFilter").value = toDateInputValue(new Date());
+
+  fillActionFilter();
+  refreshDashboard();
+
+  document.getElementById("applyFilters").addEventListener("click", refreshDashboard);
+  document.getElementById("periodFilter").addEventListener("change", refreshDashboard);
+  document.getElementById("sourceFilter").addEventListener("change", refreshDashboard);
+  document.getElementById("actionFilter").addEventListener("change", refreshDashboard);
+
+  document.getElementById("todayBtn").addEventListener("click", () => {
+    document.getElementById("dateFilter").value = toDateInputValue(new Date());
+    document.getElementById("periodFilter").value = "day";
+    refreshDashboard();
+  });
+
+  document.getElementById("downloadCsvBtn").addEventListener("click", () => {
+    downloadCsv(filterRows());
+  });
+
+  window.addEventListener("resize", refreshDashboard);
+});
+</script>
 {% endblock %}
