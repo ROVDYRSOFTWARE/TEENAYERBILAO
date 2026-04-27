@@ -844,10 +844,13 @@ def admin_lugar_delete(place_id: str):
 @app.route("/admin/auditoria")
 @admin_required
 def admin_auditoria():
+    audit_rows = data_store.load_audit()
+    interactions = data_store.load_interactions()
+
     return render_template(
         "admin_auditoria.html",
-        audit_rows=list(reversed(data_store.load_audit()))[:200],
-        interactions=list(reversed(data_store.load_interactions()))[:100],
+        audit_rows=audit_rows,
+        interactions=interactions,
         stats=recommender.stats_summary(),
     )
 
